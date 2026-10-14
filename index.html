@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-slate-50 overflow-hidden">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Document Vault - Thai Language OCR Engine</title>
+  
+  <!-- CDNs -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="h-screen w-screen overflow-hidden text-slate-800 bg-slate-50 flex antialiased selection:bg-indigo-500 selection:text-white" onclick="closeAllDropdowns(event)">
+
+  <!-- Components Container -->
+  <div id="loginScreen" class="fixed inset-0 z-50 bg-slate-900 flex items-center justify-center p-4"></div>
+
+  <div id="mainApp" class="hidden h-screen w-screen flex overflow-hidden">
+    <aside id="sidebarComponent" class="w-64 bg-slate-900 text-white flex flex-col justify-between hidden md:flex shrink-0 border-r border-slate-800 h-full"></aside>
+    
+    <div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <header id="headerComponent" class="bg-white border-b border-slate-200/80 px-6 py-3 flex justify-between items-center gap-4 shrink-0 shadow-2xs"></header>
+      <main id="dashboardComponent" class="flex-1 p-5 flex flex-col min-h-0 space-y-4 overflow-hidden h-full"></main>
+    </div>
+  </div>
+
+  <!-- Fullscreen Modals -->
+  <div id="userManagementModal" class="fixed inset-0 w-screen h-screen bg-slate-900/80 backdrop-blur-md z-50 hidden flex flex-col p-0 overflow-hidden"></div>
+  <div id="excelPreviewModal" class="fixed inset-0 w-screen h-screen bg-slate-900/80 backdrop-blur-md z-50 hidden flex flex-col p-4 sm:p-6 overflow-hidden"></div>
+  <div id="viewerModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex flex-col p-4 sm:p-6"></div>
+  <div id="uploadModal" class="fixed inset-0 w-screen h-screen bg-slate-950 z-50 hidden flex flex-col p-0 overflow-hidden"></div>
+
+  <!-- Scripts Loading -->
+  <script src="js/config.js"></script>
+  <script src="js/services/db.js"></script>
+  <script src="js/services/ocr.js"></script>
+  <script src="js/services/userStore.js"></script>
+  
+  <script src="js/components/auth.js"></script>
+  <script src="js/components/sidebar.js"></script>
+  <script src="js/components/header.js"></script>
+  <script src="js/components/dashboard.js"></script>
+  <script src="js/components/documentViewer.js"></script>
+  <script src="js/components/uploadModal.js"></script>
+  <script src="js/components/userManagement.js"></script>
+  <script src="js/components/excelPreview.js"></script>
+  
+  <script src="js/app.js"></script>
+</body>
+</html>
