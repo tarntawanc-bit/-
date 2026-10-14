@@ -62,13 +62,13 @@ function renderUploadModal() {
   container.innerHTML = `
     <div class="bg-white w-full h-full flex flex-col min-h-0 overflow-hidden">
       
-      <!-- Top Bar Toolbar (ขยายขนาดเป็น 100% + เพิ่มความสูงและขนาด Element) -->
+      <!-- Top Bar Toolbar (ป้องกันการล้น + ซ่อน Scrollbar) -->
       <div id="importTopBar" class="w-full px-4 py-2 bg-slate-100 text-slate-800 flex items-center justify-between gap-3 shrink-0 border-b border-slate-200 shadow-xs transition-colors duration-200">
         
-        <!-- กลุ่มเครื่องมือด้านซ้าย-กลาง (ขยายเต็ม 100%) -->
-        <div class="flex-1 flex flex-wrap items-center gap-2.5 max-w-full overflow-hidden">
+        <!-- กลุ่มเครื่องมือด้านซ้าย-กลาง (ใช้ overflow-x-auto + [scrollbar-width:none] เพื่อเลื่อนได้โดยไม่มี Slide bar) -->
+        <div class="flex-1 flex flex-nowrap items-center gap-2.5 max-w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1">
           
-          <!-- 1. โลโก้ + เลือกไฟล์ PDF (ปรับใหญ่ขึ้น) -->
+          <!-- 1. โลโก้ + เลือกไฟล์ PDF (เพิ่มไอคอนหน้าข้อความแล้ว) -->
           <div class="flex items-center gap-2 shrink-0">
             <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
               <i class="fa-solid fa-file-signature"></i>
@@ -76,31 +76,31 @@ function renderUploadModal() {
 
             <label class="h-10 bg-white hover:bg-indigo-50 text-indigo-700 px-4 rounded-xl text-xs font-extrabold cursor-pointer transition-all flex items-center gap-2 shrink-0 shadow-2xs active:scale-95 border border-indigo-200" title="อัปโหลดไฟล์ PDF">
               <i class="fa-solid fa-cloud-arrow-up text-sm text-indigo-600"></i>
-              <span id="uploadFileLabelText" class="truncate max-w-[130px] sm:max-w-[180px]">เลือก PDF</span>
+              <span id="uploadFileLabelText" class="truncate max-w-[150px] sm:max-w-[200px]">เลือกหรือเปลี่ยนไฟล์ PDF</span>
               <input type="file" id="pdfFileInput" accept="application/pdf" class="hidden" onchange="processPDFFile(this)">
             </label>
           </div>
 
-<!-- 5. คำแนะนำการลากกรอบ + ปุ่มล้างกรอบ (ปรับใหญ่ขึ้น) -->
-          <div class="h-10 flex items-center bg-white px-2.5 rounded-xl border border-slate-200 gap-2 shrink-0 shadow-2xs ml-auto sm:ml-0">
-            <span class="text-xs font-bold text-slate-600 hidden xl:flex items-center gap-1.5">
+<!-- 5. คำแนะนำการลากกรอบ + ปุ่มล้างกรอบ -->
+          <div class="h-10 flex items-center bg-white px-2.5 rounded-xl border border-slate-200 gap-2 shrink-0 shadow-2xs">
+            <span class="text-xs font-bold text-slate-600 flex items-center gap-1.5 whitespace-nowrap">
               <i class="fa-solid fa-vector-square text-indigo-600 text-sm"></i> กรุณาลากกรอบบน PDF ตามหัวข้อที่ต้องการ
             </span>
 
-            <button type="button" onclick="clearAllBoxes()" class="h-7 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg font-bold text-xs transition-all flex items-center gap-1 border border-rose-200 active:scale-95" title="ล้างกรอบตำแหน่งทั้งหมด">
+            <button type="button" onclick="clearAllBoxes()" class="h-7 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg font-bold text-xs transition-all flex items-center gap-1 border border-rose-200 active:scale-95 shrink-0 whitespace-nowrap" title="ล้างกรอบตำแหน่งทั้งหมด">
               <i class="fa-solid fa-rotate-left text-xs"></i> ล้างกรอบ
             </button>
           </div>
 
-          <!-- 2. ปุ่มเปิดดูแบบฟอร์มที่บันทึกไว้ (ปรับใหญ่ขึ้น) -->
+          <!-- 2. ปุ่มเปิดดูแบบฟอร์มที่บันทึกไว้ -->
           <button type="button" 
                   onclick="openFormTemplatesModal()" 
                   class="h-10 px-3.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-extrabold rounded-xl text-xs border border-amber-200 transition-all flex items-center gap-2 shadow-2xs active:scale-95 cursor-pointer shrink-0">
             <i class="fa-solid fa-folder-open text-amber-500 text-sm"></i>
-            <span class="hidden sm:inline">ดูแบบฟอร์ม</span>
+            <span class="whitespace-nowrap">ดูแบบฟอร์ม</span>
           </button>
 
-          <!-- 3. หมวดหมู่เอกสาร (ปรับใหญ่ขึ้น) -->
+          <!-- 3. หมวดหมู่เอกสาร -->
           <div class="h-10 flex items-center bg-white px-2.5 rounded-xl border border-slate-200 gap-1.5 shrink-0 shadow-2xs">
             <span class="text-xs font-bold text-amber-600 flex items-center gap-1 shrink-0">
               <i class="fa-solid fa-tag text-xs"></i>
@@ -113,13 +113,13 @@ function renderUploadModal() {
             </select>
           </div>
 
-          <!-- 4. บล็อกจัดการแม่แบบ (Template Manager - ปรับใหญ่ขึ้น) -->
+          <!-- 4. บล็อกจัดการแม่แบบ (Template Manager) -->
           <div class="h-10 flex items-center bg-white px-2.5 rounded-xl border border-slate-200 gap-1.5 shrink-0 shadow-2xs">
-            <span class="text-xs font-bold text-slate-600 flex items-center gap-1">
+            <span class="text-xs font-bold text-slate-600 flex items-center gap-1 shrink-0">
               <i class="fa-solid fa-bookmark text-amber-500 text-xs"></i>
             </span>
 
-            <select id="templateSelector" onchange="loadSelectedTemplate()" class="h-7 px-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none max-w-[120px] truncate cursor-pointer" title="เลือกแม่แบบ">
+            <select id="templateSelector" onchange="loadSelectedTemplate()" class="h-7 px-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none max-w-[120px] truncate cursor-pointer shrink-0" title="เลือกแม่แบบ">
               <option value="">-- เลือกแบบฟอร์ม --</option>
             </select>
             
@@ -127,26 +127,24 @@ function renderUploadModal() {
               <i class="fa-solid fa-trash-can"></i>
             </button>
 
-            <div class="h-4 w-px bg-slate-200 mx-0.5"></div>
+            <div class="h-4 w-px bg-slate-200 mx-0.5 shrink-0"></div>
 
-            <input type="text" id="newTemplateName" placeholder="ชื่อแม่แบบ..." class="h-7 px-2 bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-lg text-xs w-24 focus:outline-none">
+            <input type="text" id="newTemplateName" placeholder="ชื่อแม่แบบ..." class="h-7 px-2 bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-lg text-xs w-24 focus:outline-none shrink-0">
             
-            <button type="button" onclick="saveCurrentTemplate()" class="h-7 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs shrink-0 transition-all flex items-center gap-1 active:scale-95" title="บันทึกเป็นแม่แบบใหม่">
+            <button type="button" onclick="saveCurrentTemplate()" class="h-7 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs shrink-0 transition-all flex items-center gap-1 active:scale-95 whitespace-nowrap" title="บันทึกเป็นแม่แบบใหม่">
               <i class="fa-solid fa-floppy-disk text-xs"></i> บันทึก
             </button>
           </div>
 
-          
-
         </div>
 
-        <!-- ปุ่มควบคุมฝั่งขวาสุด (ปรับขนาด 10x10) -->
+        <!-- ปุ่มควบคุมฝั่งขวาสุด -->
         <div class="flex items-center gap-1.5 shrink-0 ml-auto border-l border-slate-200 pl-2.5">
-          <button type="button" id="importThemeToggleBtn" onclick="toggleImportTheme()" class="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 flex items-center justify-center transition-all font-bold shadow-2xs active:scale-95" title="สลับธีม สว่าง/มืด">
+          <button type="button" id="importThemeToggleBtn" onclick="toggleImportTheme()" class="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 flex items-center justify-center transition-all font-bold shadow-2xs active:scale-95 shrink-0" title="สลับธีม สว่าง/มืด">
             <i id="importThemeIcon" class="fa-solid fa-moon text-indigo-600 text-sm"></i>
           </button>
 
-          <button type="button" onclick="closeUploadModal()" class="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-rose-50 hover:text-rose-600 border border-slate-200 flex items-center justify-center transition-all font-bold shadow-2xs active:scale-95" title="ปิดหน้าต่าง">
+          <button type="button" onclick="closeUploadModal()" class="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-rose-50 hover:text-rose-600 border border-slate-200 flex items-center justify-center transition-all font-bold shadow-2xs active:scale-95 shrink-0" title="ปิดหน้าต่าง">
             <i class="fa-solid fa-xmark text-lg"></i>
           </button>
         </div>
@@ -1041,7 +1039,7 @@ function applyImportThemeUI() {
 
   if (isImportDarkMode) {
     topBar.className =
-      "w-full px-3 py-2 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-slate-800 shadow-md transition-colors duration-200";
+      "w-full px-3 py-2 bg-slate-900 text-white flex flex-nowrap items-center justify-between gap-2 shrink-0 border-b border-slate-800 shadow-md transition-colors duration-200";
     rightPanel.className =
       "w-96 bg-slate-900 text-white border-l border-slate-800 flex flex-col h-full shrink-0 shadow-2xl relative overflow-y-auto transition-colors duration-200";
     canvasViewport.className =
@@ -1056,7 +1054,7 @@ function applyImportThemeUI() {
     themeIcon.className = "fa-solid fa-sun text-amber-400 text-lg";
   } else {
     topBar.className =
-      "w-full px-3 py-2 bg-slate-100 text-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-slate-200 shadow-2xs transition-colors duration-200";
+      "w-full px-3 py-2 bg-slate-100 text-slate-800 flex flex-nowrap items-center justify-between gap-2 shrink-0 border-b border-slate-200 shadow-2xs transition-colors duration-200";
     rightPanel.className =
       "w-96 bg-slate-50 text-slate-800 border-l border-slate-200 flex flex-col h-full shrink-0 shadow-md relative overflow-y-auto transition-colors duration-200";
     canvasViewport.className =
@@ -1128,7 +1126,7 @@ async function checkIsScannedPDF(pdfDoc) {
 }
 
 async function processPDFData(arrayBuffer, fileName = "เอกสาร PDF") {
-  document.getElementById("uploadFileLabelText").textContent = fileName;
+  // ไม่เปลี่ยนข้อความปุ่มให้เป็นชื่อไฟล์ คงข้อความเดิมเสมอ
   try {
     pdfDocObj = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     isScannedPdf = await checkIsScannedPDF(pdfDocObj);
@@ -1335,7 +1333,7 @@ function resetCanvasToInitialState() {
 
   document.getElementById("pdfFileInput").value = "";
   document.getElementById("uploadFileLabelText").textContent =
-    "เลือก/เปลี่ยนไฟล์ PDF";
+    "เลือกหรือเปลี่ยนไฟล์ PDF";
   document.getElementById("newTemplateName").value = "";
   document.getElementById("pagesContainer").innerHTML = "";
 
@@ -1902,6 +1900,7 @@ function closeTemplatePreview() {
 function filterFormTemplates() {
   renderFormTemplatesList();
 }
+
 // 2. เรนเดอร์รายการแบบฟอร์มพร้อม Checkbox สำหรับเลือกรายการลบ
 function renderFormTemplatesList() {
   const container = document.getElementById("formTemplatesListContainer");

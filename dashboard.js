@@ -416,6 +416,7 @@ function extractImportedDocDate(doc) {
 
   return '';
 }
+
 // ฟังก์ชันดึงค่าฟิลด์ทั่วไป (เลขเอกสาร, บริษัท, รายละเอียด) แบบสแกนครอบคลุมทุกหมวดหมู่
 function extractDocFieldValue(doc, fieldType) {
   if (!doc) return '';
@@ -457,142 +458,181 @@ function renderDocuments(docs) {
 
   if (docs.length === 0) {
     container.innerHTML = `
-      <div class="bg-white rounded-2xl border border-slate-200/80 p-12 text-center h-full flex flex-col justify-center items-center">
-        <div class="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mb-3 text-2xl">
+      <div class="bg-white rounded-2xl border-2 border-slate-300 p-12 text-center h-full flex flex-col justify-center items-center shadow-xs">
+        <div class="w-16 h-16 bg-slate-100 text-slate-700 rounded-2xl flex items-center justify-center mb-3 text-2xl border border-slate-300">
           <i class="fa-solid fa-folder-open"></i>
         </div>
         <h4 class="text-base font-bold text-slate-800">ไม่พบเอกสารตามเงื่อนไขที่เลือก</h4>
-        <p class="text-sm text-slate-400 mt-1">ลองเปลี่ยนการเลือก Dropdown หรือคำค้นหาใหม่</p>
+        <p class="text-sm text-slate-500 mt-1">ลองเปลี่ยนการเลือก Dropdown หรือคำค้นหาใหม่</p>
       </div>
     `;
     return;
   }
 
   const table = document.createElement('div');
-  table.className = 'bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs w-full h-full flex flex-col min-h-0';
+  table.className = 'bg-white rounded-2xl border-2 border-slate-300 overflow-hidden shadow-xs w-full h-full flex flex-col min-h-0';
   
   const canManageDocs = currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'EDITOR');
   const thCheckboxClass = (isSelectionMode && canManageDocs) ? '' : 'hidden';
 
-  // สัดส่วนคอลัมน์รวม 100% พอดี ไม่ล้นหน้าจอ
-  const colDocNum = isSelectionMode ? 'w-[16%]' : 'w-[18%]';
-  const colCompany = isSelectionMode ? 'w-[20%]' : 'w-[21%]';
-  const colProduct = isSelectionMode ? 'w-[22%]' : 'w-[24%]';
-  const colCat = 'w-[8%]';
+  // ปรับสัดส่วนคอลัมน์รวม 100% พอดี ไม่หลุดตาราง
+  const colDocNum = isSelectionMode ? 'w-[11%]' : 'w-[13%]';
+  const colCompany = isSelectionMode ? 'w-[16%]' : 'w-[17%]';
+  const colProduct = isSelectionMode ? 'w-[19%]' : 'w-[20%]';
+  const colCat = 'w-[10%]';
   const colDocDate = 'w-[9%]';
-  const colCreateDate = 'w-[9%]';
-  const colUpdateDate = 'w-[9%]';
-  const colManage = 'w-[7%]';
+  const colCreateDate = 'w-[12%]';
+  const colUpdateDate = 'w-[11%]';
+  const colManage = isSelectionMode ? 'w-[9%]' : 'w-[8%]';
 
   table.innerHTML = `
     <div class="w-full overflow-y-auto flex-1 h-full">
-      <table class="w-full text-left text-sm table-fixed">
-        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold sticky top-0 z-10 text-xs uppercase tracking-wider">
+      <table class="w-full text-left text-sm table-fixed border-collapse">
+        <!-- หัวข้อตาราง สี Slate 800 ฟอนต์ใหญ่ ตัวหนาชัดเจน -->
+        <thead class="bg-slate-800 text-slate-100 border-b-2 border-slate-300 font-extrabold sticky top-0 z-10 text-xs sm:text-sm uppercase tracking-tight shadow-xs">
           <tr>
-            <th class="p-3 w-[3%] text-center ${thCheckboxClass}">
-              <input type="checkbox" onchange="toggleSelectAllDocsHeader(this)" class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" title="เลือกทั้งหมด">
+            <th class="p-2.5 w-[3%] text-center border-r border-slate-700 ${thCheckboxClass}">
+              <input type="checkbox" onchange="toggleSelectAllDocsHeader(this)" class="w-4 h-4 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500 cursor-pointer" title="เลือกทั้งหมด">
             </th>
-            <th class="p-3 ${colDocNum}">เลขเอกสาร</th>
-            <th class="p-3 ${colCompany}">ชื่อบริษัท / หน่วยงาน</th>
-            <th class="p-3 ${colProduct}">รายละเอียดสินค้า / รายการ</th>
-            <th class="p-3 ${colCat} text-center">หมวดหมู่</th>
-            <th class="p-3 ${colDocDate} text-center">Date</th>
-            <th class="p-3 ${colCreateDate} text-center">Create Date</th>
-            <th class="p-3 ${colUpdateDate} text-center">Update Date</th>
-            <th class="p-3 ${colManage} text-center">Manage</th>
+            <th class="p-2.5 ${colDocNum} border-r border-slate-700">
+              <div class="flex items-center gap-1.5 truncate" title="Document No.">
+                <i class="fa-solid fa-file-lines text-indigo-300 text-sm shrink-0"></i>
+                <span class="truncate">Document No.</span>
+              </div>
+            </th>
+            <th class="p-2.5 ${colCompany} border-r border-slate-700">
+              <div class="flex items-center gap-1.5 truncate" title="Company">
+                <i class="fa-solid fa-building text-emerald-300 text-sm shrink-0"></i>
+                <span class="truncate">Company</span>
+              </div>
+            </th>
+            <th class="p-2.5 ${colProduct} border-r border-slate-700">
+              <div class="flex items-center gap-1.5 truncate" title="Detail">
+                <i class="fa-solid fa-box-open text-amber-300 text-sm shrink-0"></i>
+                <span class="truncate">Detail</span>
+              </div>
+            </th>
+            <th class="p-2.5 ${colCat} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1.5 truncate" title="หมวดหมู่">
+                <i class="fa-solid fa-tags text-purple-300 text-sm shrink-0"></i>
+                <span class="truncate">หมวดหมู่</span>
+              </div>
+            </th>
+            <th class="p-2.5 ${colDocDate} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1.5 truncate" title="Date">
+                <i class="fa-solid fa-calendar-day text-sky-300 text-sm shrink-0"></i>
+                <span class="truncate">Date</span>
+              </div>
+            </th>
+            <th class="p-2.5 ${colCreateDate} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1.5 truncate" title="Create Date">
+                <i class="fa-solid fa-clock text-rose-300 text-sm shrink-0"></i>
+                <span class="truncate">Create Date</span>
+              </div>
+            </th>
+            <th class="p-2.5 ${colUpdateDate} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1.5 truncate" title="Update By">
+                <i class="fa-solid fa-user-pen text-teal-300 text-sm shrink-0"></i>
+                <span class="truncate">Update By</span>
+              </div>
+            </th>
+            <th class="p-2.5 ${colManage} text-center">
+              <div class="flex items-center justify-center gap-1.5 truncate" title="Manage">
+                <i class="fa-solid fa-sliders text-slate-300 text-sm shrink-0"></i>
+                <span class="truncate">Manage</span>
+              </div>
+            </th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+
+        <!-- รายการข้อมูล ล็อค Detail ห้ามเกิน 2 บรรทัดเด็ดขาด -->
+        <tbody class="divide-y divide-slate-300 border-b-2 border-slate-300 bg-white">
           ${docs.map(doc => {
             const isChecked = selectedDocIds.has(doc.id) ? 'checked' : '';
             
-            // ดึงข้อมูลตาม Box Fill 4 ช่องของ Quotation / หมวดหมู่อื่นๆ
             const docNumStr = extractDocFieldValue(doc, 'docNumber');
             const companyStr = extractDocFieldValue(doc, 'companyName');
             const productStr = extractDocFieldValue(doc, 'productDetail');
             const importedDateStr = extractImportedDocDate(doc);
             
             const createDateStr = doc.formattedDate || doc.createDate || '';
-            const updateDateStr = doc.formattedUpdateDate || doc.updateDate || '';
+            const updatedByStr = doc.updatedBy || doc.updateBy || doc.updatedByEmpId || '-';
 
             return `
-            <tr class="hover:bg-slate-50/80 transition-all ${selectedDocIds.has(doc.id) ? 'bg-indigo-50/40' : ''}">
-              <td class="p-3 text-center ${thCheckboxClass}">
+            <tr class="hover:bg-slate-50 transition-colors ${selectedDocIds.has(doc.id) ? 'bg-indigo-50/70' : ''}">
+              <td class="p-2 text-center border-r border-slate-300 ${thCheckboxClass}">
                 <input type="checkbox" value="${doc.id}" ${isChecked} onchange="toggleDocSelection(${doc.id}, this.checked)" class="doc-checkbox w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
               </td>
 
-              <!-- 1. เลขเอกสาร -->
-              <td class="p-3 font-bold text-indigo-600 cursor-pointer hover:underline">
-                <div class="flex items-center gap-2 truncate" onclick="openViewerModal(${doc.id})" title="${escapeHtml(docNumStr)}">
-                  ${docNumStr ? '<i class="fa-solid fa-file-lines text-indigo-400 text-base shrink-0"></i>' : ''}
-                  <span class="truncate text-xs font-bold">${escapeHtml(docNumStr)}</span>
+              <!-- 1. Document No. -->
+              <td class="p-2 font-bold text-indigo-700 cursor-pointer hover:underline border-r border-slate-300">
+                <div class="truncate" onclick="openViewerModal(${doc.id})" title="${escapeHtml(docNumStr)}">
+                  <span class="truncate text-xs sm:text-sm font-bold block">${escapeHtml(docNumStr)}</span>
                 </div>
               </td>
 
-              <!-- 2. ชื่อบริษัท -->
-              <td class="p-3 font-semibold text-emerald-700">
-                <div class="flex items-center gap-2 truncate" title="${escapeHtml(companyStr)}">
-                  ${companyStr ? '<i class="fa-solid fa-building text-emerald-400 text-base shrink-0"></i>' : ''}
-                  <span class="truncate text-xs">${escapeHtml(companyStr)}</span>
+              <!-- 2. Company -->
+              <td class="p-2 font-semibold text-emerald-800 border-r border-slate-300">
+                <div class="truncate" title="${escapeHtml(companyStr)}">
+                  <span class="truncate text-xs sm:text-sm block">${escapeHtml(companyStr)}</span>
                 </div>
               </td>
 
-              <!-- 3. รายละเอียด -->
-              <td class="p-3 text-slate-700">
-                <div class="flex items-start gap-2" title="${escapeHtml(productStr)}">
-                  ${productStr ? '<i class="fa-solid fa-box-open text-amber-400 text-xs mt-0.5 shrink-0"></i>' : ''}
-                  <span class="line-clamp-2 text-xs leading-relaxed">${escapeHtml(productStr)}</span>
+              <!-- 3. Detail: กำหนดความสูงและจำนวนบรรทัดสูงสุดไม่เกิน 2 บรรทัด -->
+              <td class="p-2 text-slate-800 border-r border-slate-300">
+                <div title="${escapeHtml(productStr)}">
+                  <span class="line-clamp-2 text-xs sm:text-sm leading-snug block overflow-hidden break-words" style="max-height: 2.6em;">${escapeHtml(productStr)}</span>
                 </div>
               </td>
 
               <!-- หมวดหมู่ -->
-              <td class="p-3 text-center shrink-0">
-                <span class="inline-block px-2.5 py-1 rounded-lg text-[11px] font-extrabold ${getCategoryStyle(doc.category)}">${doc.category || ''}</span>
+              <td class="p-2 text-center border-r border-slate-300">
+                <span class="inline-block px-2 py-0.5 rounded-lg text-xs font-extrabold truncate max-w-full ${getCategoryStyle(doc.category)}">${doc.category || ''}</span>
               </td>
 
-              <!-- 4. Date (ดึงจาก q_date ของ Quotation) -->
-              <td class="p-3 text-center text-slate-600 shrink-0 whitespace-nowrap">
-                <div class="text-xs font-semibold text-slate-700">${escapeHtml(importedDateStr)}</div>
+              <!-- 4. Date -->
+              <td class="p-2 text-center text-slate-700 border-r border-slate-300">
+                <div class="text-xs sm:text-sm font-semibold text-slate-800 truncate" title="${escapeHtml(importedDateStr)}">${escapeHtml(importedDateStr)}</div>
               </td>
 
               <!-- Create Date -->
-              <td class="p-3 text-center text-slate-500 shrink-0 whitespace-nowrap">
-                <div class="text-xs font-medium text-slate-700">${escapeHtml(createDateStr)}
+              <td class="p-2 text-center text-slate-600 border-r border-slate-300">
+                <div class="text-xs sm:text-sm font-medium text-slate-800 truncate" title="${escapeHtml(createDateStr)}">${escapeHtml(createDateStr)}</div>
               </td>
 
-              <!-- Update Date -->
-              <td class="p-3 text-center text-slate-500 shrink-0 whitespace-nowrap">
-                <div class="text-xs font-medium text-slate-700">${escapeHtml(updateDateStr)}</div>
+              <!-- Update By -->
+              <td class="p-2 text-center text-slate-600 border-r border-slate-300">
+                <div class="text-xs sm:text-sm font-medium text-slate-800 truncate" title="${escapeHtml(updatedByStr)}">${escapeHtml(updatedByStr)}</div>
               </td>
 
               <!-- Manage Controls -->
-              <td class="p-3 text-center whitespace-nowrap relative">
-                <button onclick="toggleActionMenu(${doc.id}, event)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-xl font-bold text-xs border border-slate-200/80 transition-all flex items-center gap-1 mx-auto active:scale-95 shadow-2xs">
+              <td class="p-2 text-center relative">
+                <button onclick="toggleActionMenu(${doc.id}, event)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 px-2 py-1 rounded-xl font-bold text-xs sm:text-sm border border-slate-300 transition-all flex items-center justify-center gap-1 mx-auto active:scale-95 shadow-2xs w-full max-w-[80px]">
                   <span>จัดการ</span>
-                  <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                  <i class="fa-solid fa-chevron-down text-[10px] text-slate-500"></i>
                 </button>
 
-                <div id="dropdown-menu-${doc.id}" class="hidden absolute right-2 top-11 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-1.5 w-44 z-30 text-left space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
-                  <button onclick="openViewerModal(${doc.id})" class="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all flex items-center gap-2.5">
+                <div id="dropdown-menu-${doc.id}" class="hidden absolute right-2 top-9 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 w-44 z-30 text-left space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                  <button onclick="openViewerModal(${doc.id})" class="w-full px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all flex items-center gap-2.5">
                     <i class="fa-solid fa-eye text-indigo-500 w-4 text-center"></i>
                     <span>ดูเอกสาร</span>
                   </button>
                   
                   ${canManageDocs ? `
-                  <button onclick="openEditModal(${doc.id})" class="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-amber-600 hover:bg-amber-50/80 transition-all flex items-center gap-2.5">
+                  <button onclick="openEditModal(${doc.id})" class="w-full px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-amber-600 hover:bg-amber-50/80 transition-all flex items-center gap-2.5">
                     <i class="fa-solid fa-pen-to-square text-amber-500 w-4 text-center"></i>
                     <span>แก้ไขข้อมูล/ไฟล์</span>
                   </button>
                   ` : ''}
 
-                  <button onclick="downloadDoc(${doc.id})" class="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-2.5">
+                  <button onclick="downloadDoc(${doc.id})" class="w-full px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-2.5">
                     <i class="fa-solid fa-download text-slate-500 w-4 text-center"></i>
                     <span>ดาวน์โหลด</span>
                   </button>
 
                   ${canManageDocs ? `
-                  <div class="h-px bg-slate-100 my-1"></div>
-                  <button onclick="deleteDoc(${doc.id})" class="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-all flex items-center gap-2.5">
+                  <div class="h-px bg-slate-200 my-1"></div>
+                  <button onclick="deleteDoc(${doc.id})" class="w-full px-3.5 py-2 text-xs sm:text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-all flex items-center gap-2.5">
                     <i class="fa-solid fa-trash-can text-rose-500 w-4 text-center"></i>
                     <span>ลบเอกสาร</span>
                   </button>
