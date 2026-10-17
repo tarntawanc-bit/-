@@ -81,7 +81,7 @@ function renderUploadModal() {
             </label>
           </div>
 
-<!-- 5. คำแนะนำการลากกรอบ + ปุ่มล้างกรอบ -->
+          <!-- 5. คำแนะนำการลากกรอบ + ปุ่มล้างกรอบ -->
           <div class="h-10 flex items-center bg-white px-2.5 rounded-xl border border-slate-200 gap-2 shrink-0 shadow-2xs">
             <span class="text-xs font-bold text-slate-600 flex items-center gap-1.5 whitespace-nowrap">
               <i class="fa-solid fa-vector-square text-indigo-600 text-sm"></i> กรุณาลากกรอบบน PDF ตามหัวข้อที่ต้องการ
@@ -883,57 +883,74 @@ function handleUploadSubmit(e) {
   });
 
   const docNumVal =
-    boxValues["q_doc"] ||
-    boxValues["inv_doc"] ||
-    boxValues["invt_doc"] ||
-    boxValues["cert_doc"] ||
-    Object.values(boxValues)[0] ||
-    "";
+    boxValues["q_doc"] || boxValues["inv_doc"] || boxValues["invt_doc"] || boxValues["cert_doc"] || Object.values(boxValues)[0] || "";
   const companyVal =
-    boxValues["q_comp"] ||
-    boxValues["inv_comp"] ||
-    boxValues["invt_comp"] ||
-    boxValues["cert_comp"] ||
-    Object.values(boxValues)[1] ||
-    "";
+    boxValues["q_comp"] || boxValues["inv_comp"] || boxValues["invt_comp"] || boxValues["cert_comp"] || Object.values(boxValues)[1] || "";
   const detailVal =
-    boxValues["q_detail"] ||
-    boxValues["inv_detail"] ||
-    boxValues["invt_detail"] ||
-    boxValues["cert_detail"] ||
-    Object.values(boxValues)[2] ||
-    "";
+    boxValues["q_detail"] || boxValues["inv_detail"] || boxValues["invt_detail"] || boxValues["cert_detail"] || Object.values(boxValues)[2] || "";
   const dateVal =
-    boxValues["q_date"] ||
-    boxValues["inv_date"] ||
-    boxValues["invt_date"] ||
-    boxValues["cert_date"] ||
-    Object.values(boxValues)[3] ||
-    "";
+    boxValues["q_date"] || boxValues["inv_date"] || boxValues["invt_date"] || boxValues["cert_date"] || Object.values(boxValues)[3] || "";
 
-  const fallbackTitle =
-    [docNumVal, companyVal, detailVal].filter(Boolean).join(" - ") ||
-    "เอกสารไม่มีชื่อ";
-  const nowStr =
-    typeof getFormattedDateTime === "function"
-      ? getFormattedDateTime()
-      : new Date().toLocaleString("th-TH");
+  // ดึงข้อมูลแผนก
+  const deptVal = 
+    boxValues["q_dept"] || 
+    boxValues["inv_dept"] || 
+    boxValues["invt_dept"] || 
+    boxValues["cert_dept"] || 
+    boxValues["department"] || 
+    boxValues["dept"] || 
+    (currentUser ? (currentUser.department || currentUser.dept || currentUser.section || "") : "");
+
+  const fallbackTitle = [docNumVal, companyVal, detailVal].filter(Boolean).join(" - ") || "เอกสารไม่มีชื่อ";
+  const nowStr = typeof getFormattedDateTime === "function" ? getFormattedDateTime() : new Date().toLocaleString("th-TH");
+
+  // =========================================================================
+  // 🔹 ดึงข้อมูลผู้บันทึกข้อมูล (Full Name & Employee ID)
+  // =========================================================================
+  const activeUser = window.currentUser || window.user || window.loggedInUser || (typeof currentUser !== "undefined" ? currentUser : {});
+  const allUsers = window.usersList || window.employees || window.userList || [];
+
+  const matchedUser = allUsers.find(u => 
+    (activeUser.employeeId && (u.employeeId === activeUser.employeeId || u.empId === activeUser.employeeId)) ||
+    (activeUser.empId && (u.empId === activeUser.empId || u.employeeId === activeUser.empId || u.empCode === activeUser.empId)) ||
+    (activeUser.username && u.username === activeUser.username)
+  ) || activeUser;
+
+  const userFullName = 
+    activeUser.fullName || activeUser.fullname || activeUser.name || 
+    matchedUser.fullName || matchedUser.fullname || matchedUser.name || 
+    activeUser.username || "System";
+
+  const userEmployeeId = 
+    activeUser.employeeId || activeUser.empId || activeUser.empCode || 
+    matchedUser.employeeId || matchedUser.empId || matchedUser.empCode || 
+    activeUser.id || "-";
+
+  const userInfoForLog = {
+    fullName: userFullName,
+    employeeId: userEmployeeId,
+    department: deptVal || matchedUser.department || matchedUser.dept || activeUser.department || activeUser.dept || "-"
+  };
+
+  // 🔹 สร้างข้อความสำหรับ Log ให้เข้าโครงสร้างมาตรฐาน 3 บรรทัด: "Doc No (Company) | Detail"
+  const logDetailText = `${docNumVal || '-'}${companyVal ? ` (${companyVal})` : ''} | ${detailVal || '-'}`;
 
   if (editId) {
     getDocById(Number(editId), (doc) => {
       doc.docNumber = docNumVal;
       doc.companyName = companyVal;
       doc.productDetail = detailVal;
+      doc.department = deptVal;
+      doc.empDept = deptVal;
       doc.docDate = dateVal;
-      doc.q_date = dateVal;
-      doc.inv_date = dateVal;
-      doc.invt_date = dateVal;
-      doc.cert_date = dateVal;
       doc.title = fallbackTitle;
       doc.category = category;
 
       doc.updateDate = nowStr;
       doc.formattedUpdateDate = nowStr;
+
+      doc.updatedBy = userFullName;
+      doc.updatedByEmpId = userEmployeeId;
 
       doc.boxValues = boxValues;
       doc.fieldsData = fieldsData;
@@ -947,6 +964,11 @@ function handleUploadSubmit(e) {
       }
 
       saveDoc(doc, () => {
+        // 🔹 เรียกฟังก์ชันบันทึก Audit Log (กรณี UPDATE)
+        if (window.addAuditLog) {
+          window.addAuditLog("UPDATE", logDetailText, category, userInfoForLog);
+        }
+
         closeUploadModal();
         renderAll();
       });
@@ -961,11 +983,10 @@ function handleUploadSubmit(e) {
       docNumber: docNumVal,
       companyName: companyVal,
       productDetail: detailVal,
+      department: deptVal,
+      empDept: deptVal,
+      employeeDepartment: deptVal,
       docDate: dateVal,
-      q_date: dateVal,
-      inv_date: dateVal,
-      invt_date: dateVal,
-      cert_date: dateVal,
       title: fallbackTitle,
       category: category,
       originalName: file.name,
@@ -975,6 +996,13 @@ function handleUploadSubmit(e) {
       formattedDate: nowStr,
       updateDate: "",
       formattedUpdateDate: "",
+
+      createdBy: userFullName,
+      createdByName: userFullName,
+      createdByEmpId: userEmployeeId,
+      employeeId: userEmployeeId,
+      empId: userEmployeeId,
+
       fileBlob: file,
       boxValues: boxValues,
       fieldsData: fieldsData,
@@ -982,6 +1010,11 @@ function handleUploadSubmit(e) {
     };
 
     saveDoc(docData, () => {
+      // 🔹 เรียกฟังก์ชันบันทึก Audit Log (กรณี CREATE)
+      if (window.addAuditLog) {
+        window.addAuditLog("CREATE", logDetailText, category, userInfoForLog);
+      }
+
       closeUploadModal();
       renderAll();
     });
@@ -1126,7 +1159,6 @@ async function checkIsScannedPDF(pdfDoc) {
 }
 
 async function processPDFData(arrayBuffer, fileName = "เอกสาร PDF") {
-  // ไม่เปลี่ยนข้อความปุ่มให้เป็นชื่อไฟล์ คงข้อความเดิมเสมอ
   try {
     pdfDocObj = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     isScannedPdf = await checkIsScannedPDF(pdfDocObj);
@@ -1422,7 +1454,6 @@ function refreshTemplateDropdown(selectedName = "") {
 
   select.innerHTML = '<option value="">-- เลือกแบบ --</option>';
 
-  // ดึงหมวดหมู่เอกสารปัจจุบันที่กำลังเปิดอยู่
   const currentCategory = document.getElementById("fileCategory")?.value || "";
 
   const TEMPLATES_KEY = "form_templates_data";
@@ -1431,7 +1462,6 @@ function refreshTemplateDropdown(selectedName = "") {
   for (let name in templates) {
     const tData = templates[name];
 
-    // กรองแสดงเฉพาะแบบฟอร์มที่มีหมวดหมู่ตรงกับหมวดหมู่ที่เลือกไว้
     if (tData && tData.category === currentCategory) {
       const option = document.createElement("option");
       option.value = name;
@@ -1570,10 +1600,6 @@ function openEditModal(id) {
   });
 }
 
-/* ==========================================================================
-   FORM TEMPLATES MANAGER & PREVIEW MODAL
-   ========================================================================== */
-// 1. เรนเดอร์โครงสร้าง HTML เพิ่มปุ่มลบรายการที่เลือก และ Checkbox เลือกทั้งหมด
 function renderFormTemplatesModal() {
   let modal = document.getElementById("formTemplatesModal");
 
@@ -1588,7 +1614,6 @@ function renderFormTemplatesModal() {
   modal.innerHTML = `
     <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150 relative">
       
-      <!-- Modal Header -->
       <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-lg font-bold shadow-xs">
@@ -1605,7 +1630,6 @@ function renderFormTemplatesModal() {
         </button>
       </div>
 
-      <!-- Search Bar & Toolbar Actions -->
       <div class="p-4 border-b border-slate-100 bg-white shrink-0 flex flex-wrap items-center justify-between gap-3">
         <div class="relative flex-1 min-w-[180px]">
           <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
@@ -1627,7 +1651,6 @@ function renderFormTemplatesModal() {
           </select>
         </div>
 
-        <!-- กลุ่มปุ่ม Import, Export & ปุ่มลบมากกว่า 1 รายการ -->
         <div class="flex items-center gap-1.5 shrink-0 border-l border-slate-200 pl-2">
           <label class="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95" title="นำเข้าแม่แบบจากไฟล์ JSON">
             <i class="fa-solid fa-file-import text-indigo-600"></i>
@@ -1642,7 +1665,6 @@ function renderFormTemplatesModal() {
             <span>Export</span>
           </button>
 
-          <!-- ปุ่มลบแบบฟอร์มแบบเลือกหลายรายการ -->
           <button type="button" 
                   id="btnBulkDeleteTemplates" 
                   onclick="deleteSelectedFormTemplates()" 
@@ -1653,7 +1675,6 @@ function renderFormTemplatesModal() {
         </div>
       </div>
 
-      <!-- แถบเลือกทั้งหมด (Select All) -->
       <div class="px-5 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
         <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-700">
           <input type="checkbox" id="selectAllManagerTemplatesChk" onchange="toggleSelectAllManagerTemplates(this)" class="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer">
@@ -1662,15 +1683,12 @@ function renderFormTemplatesModal() {
         <span class="text-[11px] text-slate-400 font-medium">ติ๊กถูกหน้าแบบฟอร์มเพื่อเลือกการลบหลายรายการพร้อมกัน</span>
       </div>
 
-      <!-- Template List View -->
       <div class="p-5 flex-1 overflow-y-auto space-y-3" id="formTemplatesListContainer"></div>
 
-      <!-- Footer แสดงจำนวนรายการ -->
       <div class="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
         <span class="text-xs text-slate-500 font-bold" id="templatesCountText">พบแบบฟอร์มทั้งหมด 0 รายการ</span>
       </div>
 
-      <!-- POP-UP OVERLAY: หน้าจอตัวอย่างพร้อมแสดงหน้า PDF จริง -->
       <div id="templatePreviewOverlay" class="absolute inset-0 bg-white z-20 hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
         <div class="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
           <div class="flex items-center gap-2.5">
@@ -1726,7 +1744,6 @@ function renderFormTemplatesModal() {
   `;
 }
 
-// 3. สลับเลือก/ยกเลิกแบบฟอร์มทั้งหมด
 function toggleSelectAllManagerTemplates(masterChk) {
   const checkboxes = document.querySelectorAll(".manager-tmpl-chk");
   checkboxes.forEach((chk) => {
@@ -1736,7 +1753,6 @@ function toggleSelectAllManagerTemplates(masterChk) {
   updateBulkDeleteCount();
 }
 
-// 4. อัปเดตตัวเลขจำนวนรายการที่เลือกบนปุ่มลบ
 function updateBulkDeleteCount() {
   const selectedCount = document.querySelectorAll(".manager-tmpl-chk:checked").length;
   const btnText = document.getElementById("btnDeleteSelectedText");
@@ -1753,7 +1769,6 @@ function updateBulkDeleteCount() {
   }
 }
 
-// 5. ฟังก์ชันลบแบบฟอร์มทีละหลายรายการ (Bulk Delete Execution)
 function deleteSelectedFormTemplates() {
   const checkboxes = document.querySelectorAll(".manager-tmpl-chk:checked");
 
@@ -1780,19 +1795,16 @@ function deleteSelectedFormTemplates() {
     }
   });
 
-  // บันทึกรายการที่เหลือลง LocalStorage
   localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
 
   alert(`ลบแบบฟอร์มเรียบร้อยแล้ว จำนวน ${deletedCount} รายการ`);
 
-  // รีเฟรชรายการบนหน้าต่างและ Dropdown
   renderFormTemplatesList();
   if (typeof refreshTemplateDropdown === "function") {
     refreshTemplateDropdown();
   }
 }
 
-// เรนเดอร์ PDF หน้าจริงลงบน Preview Canvas
 async function renderPDFRealPreview(template) {
   const canvas = document.getElementById("pdfPreviewCanvas");
   if (!canvas) return;
@@ -1901,7 +1913,6 @@ function filterFormTemplates() {
   renderFormTemplatesList();
 }
 
-// 2. เรนเดอร์รายการแบบฟอร์มพร้อม Checkbox สำหรับเลือกรายการลบ
 function renderFormTemplatesList() {
   const container = document.getElementById("formTemplatesListContainer");
   const countText = document.getElementById("templatesCountText");
@@ -1955,7 +1966,6 @@ function renderFormTemplatesList() {
 
       card.innerHTML = `
         <div class="flex items-center gap-3.5 min-w-[200px]">
-          <!-- Checkbox สำหรับติ๊กเลือกแบบฟอร์มเพื่อลบทีละหลายรายการ -->
           <input type="checkbox" 
                  data-tmpl-name="${escapeHtml(name)}" 
                  onchange="updateBulkDeleteCount()" 
@@ -1977,7 +1987,6 @@ function renderFormTemplatesList() {
           </div>
         </div>
 
-        <!-- รายการปุ่มสั่งการรายรายการ -->
         <div class="flex items-center gap-1.5 ml-auto">
           <button type="button" 
                   onclick="previewFormTemplate('${escapeHtml(name)}')" 
@@ -2098,7 +2107,6 @@ function isTemplateContentEqual(tmplA, tmplB) {
   return true;
 }
 
-// 2. เรนเดอร์โครงสร้าง Pop-up สำหรับดูรายการทั้งหมดก่อนนำเข้า (Import Review UI)
 function renderImportReviewModal() {
   let modal = document.getElementById("importReviewModal");
 
@@ -2113,7 +2121,6 @@ function renderImportReviewModal() {
   modal.innerHTML = `
     <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
       
-      <!-- Header -->
       <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg font-bold shadow-xs">
@@ -2130,10 +2137,8 @@ function renderImportReviewModal() {
         </button>
       </div>
 
-      <!-- Controls & Quick Selection Tools (เลือกทั้งหมด / ตามหมวดหมู่) -->
       <div class="p-4 border-b border-slate-100 bg-slate-50/80 shrink-0 flex flex-wrap items-center justify-between gap-3 text-xs font-bold">
         
-        <!-- ฝั่งซ้าย: ปุ่มเลือกทั้งหมด & สรุปจำนวนที่เลือก -->
         <div class="flex items-center gap-3">
           <label class="flex items-center gap-2 cursor-pointer select-none text-slate-700 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
             <input type="checkbox" id="selectAllImportChk" onchange="toggleSelectAllImport(this)" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer">
@@ -2145,7 +2150,6 @@ function renderImportReviewModal() {
           </span>
         </div>
 
-        <!-- ฝั่งขวา: เครื่องมือเลือก/กรองตามหมวดหมู่ -->
         <div class="flex items-center gap-2 shrink-0">
           <span class="text-slate-500">กรองหมวดหมู่:</span>
           <select id="importCategoryFilter" onchange="filterImportReviewList()" class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer shadow-2xs">
@@ -2156,7 +2160,6 @@ function renderImportReviewModal() {
             <option value="Certificate">Certificate (เกียรติบัตร/ใบรับรอง)</option>
           </select>
 
-          <!-- ปุ่มเลือกเฉพาะหมวดหมู่นี้ -->
           <button type="button" 
                   onclick="selectCategoryImportOnly()" 
                   class="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs" 
@@ -2167,12 +2170,8 @@ function renderImportReviewModal() {
 
       </div>
 
-      <!-- Table Content List -->
-      <div class="p-5 flex-1 overflow-y-auto space-y-2.5" id="importReviewListContainer">
-        <!-- รายการจะถูกสร้างด้วย JS -->
-      </div>
+      <div class="p-5 flex-1 overflow-y-auto space-y-2.5" id="importReviewListContainer"></div>
 
-      <!-- Footer Buttons -->
       <div class="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
         <button type="button" onclick="closeImportReviewModal()" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
           ยกเลิกทั้งหมด
@@ -2231,7 +2230,6 @@ async function importFormTemplates(input) {
 
     pendingImportTemplates = templatesToImport;
 
-    // เปิดเรนเดอร์หน้าจอ Review
     renderImportReviewModal();
     populateImportReviewList();
     document.getElementById("importReviewModal").classList.remove("hidden");
@@ -2264,7 +2262,6 @@ function populateImportReviewList() {
     const incomingTmpl = pendingImportTemplates[name];
     const category = incomingTmpl.category || "ไม่ระบุหมวดหมู่";
 
-    // กรองการแสดงผลตามหมวดหมู่ที่เลือก
     if (selectedCategoryFilter !== "ALL" && category !== selectedCategoryFilter) {
       return;
     }
@@ -2282,7 +2279,7 @@ function populateImportReviewList() {
       const isExactDuplicate = isTemplateContentEqual(existingTmpl, incomingTmpl);
       if (isExactDuplicate) {
         duplicateCount++;
-        isChecked = false; // ซ้ำ 100% ให้เอาติ๊กถูกออกไว้ก่อน
+        isChecked = false;
         statusTag = `<span class="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-extrabold flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> ซ้ำกัน 100%</span>`;
       } else {
         updateCount++;
@@ -2377,7 +2374,6 @@ function confirmImportSelectedTemplates() {
 
   closeImportReviewModal();
 
-  // รีเฟรชหน้ารายการแม่แบบ
   renderFormTemplatesList();
   if (typeof refreshTemplateDropdown === "function") {
     refreshTemplateDropdown();
@@ -2388,33 +2384,6 @@ function closeImportReviewModal() {
   const modal = document.getElementById("importReviewModal");
   if (modal) modal.classList.add("hidden");
   pendingImportTemplates = {};
-}
-
-function isTemplateContentEqual(tmplA, tmplB) {
-  if (!tmplA || !tmplB) return false;
-
-  // 1. ตรวจสอบหมวดหมู่
-  if (tmplA.category !== tmplB.category) return false;
-
-  // 2. ตรวจสอบ Base64 PDF Data
-  if (tmplA.pdfDataUrl !== tmplB.pdfDataUrl) return false;
-
-  // 3. ตรวจสอบฟิลด์การตั้งค่า (fieldsSettings)
-  const fieldsA = JSON.stringify(tmplA.fieldsSettings || []);
-  const fieldsB = JSON.stringify(tmplB.fieldsSettings || []);
-  if (fieldsA !== fieldsB) return false;
-
-  // 4. ตรวจสอบพิกัดกรอบตำแหน่ง (fieldBoxes)
-  const boxesA = JSON.stringify(tmplA.fieldBoxes || {});
-  const boxesB = JSON.stringify(tmplB.fieldBoxes || {});
-  if (boxesA !== boxesB) return false;
-
-  // 5. ตรวจสอบ masterBox
-  const masterA = JSON.stringify(tmplA.masterBox || null);
-  const masterB = JSON.stringify(tmplB.masterBox || null);
-  if (masterA !== masterB) return false;
-
-  return true; // ข้อมูลตรงกันทุกประการ
 }
 
 function previewFormTemplate(name) {
@@ -2480,7 +2449,6 @@ function previewFormTemplate(name) {
   document.getElementById("templatePreviewOverlay").classList.remove("hidden");
 }
 
-// ฟังก์ชันเปิดแก้ไขแบบฟอร์มแม่แบบ
 async function editFormTemplateDirectly(templateName) {
   const TEMPLATES_KEY = "form_templates_data";
   const templates = JSON.parse(localStorage.getItem(TEMPLATES_KEY) || "{}");
@@ -2491,10 +2459,8 @@ async function editFormTemplateDirectly(templateName) {
     return;
   }
 
-  // 1. ปิดหน้าต่างจัดการแบบฟอร์ม
   closeFormTemplatesModal();
 
-  // 2. ตรวจสอบและเปิดหน้าต่าง Import PDF Modal หากซ่อนอยู่
   const uploadModal = document.getElementById("uploadModal");
   if (uploadModal && uploadModal.classList.contains("hidden")) {
     if (typeof openUploadModal === "function") {
@@ -2502,7 +2468,6 @@ async function editFormTemplateDirectly(templateName) {
     }
   }
 
-  // 3. ตั้งค่า selector แม่แบบ และชื่อแม่แบบที่จะบันทึกแก้ไข
   const selector = document.getElementById("templateSelector");
   if (selector) {
     selector.value = templateName;
@@ -2513,7 +2478,6 @@ async function editFormTemplateDirectly(templateName) {
     newNameInput.value = templateName;
   }
 
-  // 4. ตั้งค่าหมวดหมู่เอกสารและฟิลด์ที่เกี่ยวข้อง
   if (template.category) {
     const categorySelect = document.getElementById("fileCategory");
     if (categorySelect) {
@@ -2522,7 +2486,6 @@ async function editFormTemplateDirectly(templateName) {
     }
   }
 
-  // 5. โหลดตำแหน่งกรอบ Box และการตั้งค่าฟิลด์
   masterBox = template.masterBox ? JSON.parse(JSON.stringify(template.masterBox)) : null;
   fieldBoxes = template.fieldBoxes ? JSON.parse(JSON.stringify(template.fieldBoxes)) : {};
 
@@ -2536,16 +2499,11 @@ async function editFormTemplateDirectly(templateName) {
     });
   }
 
-  // 6. ดึงไฟล์ PDF Data URL ที่บันทึกไว้ในแม่แบบมาแสดงผลบน Canvas
   if (template.pdfDataUrl) {
     try {
       showOcrLoading(true, "กำลังดึงไฟล์ PDF ของแม่แบบมาแสดงผล...");
-      
-      // แปลง Data URL (Base64) กลับเป็น ArrayBuffer เพื่อประมวลผล PDF
       const response = await fetch(template.pdfDataUrl);
       const arrayBuffer = await response.arrayBuffer();
-      
-      // ประมวลผลและเรนเดอร์ PDF ลง Canvas
       await processPDFData(arrayBuffer, `[แม่แบบ] ${templateName}.pdf`);
     } catch (err) {
       console.error("Error loading PDF from template:", err);
@@ -2554,7 +2512,6 @@ async function editFormTemplateDirectly(templateName) {
       showOcrLoading(false);
     }
   } else {
-    // หากแม่แบบเดิมไม่มีไฟล์ PDF บันทึกไว้ ให้วาดเฉพาะกรอบพิกัดตำแหน่ง
     drawAllSelectionBoxes();
   }
 }
@@ -2574,7 +2531,6 @@ function deleteFormTemplateFromManager(name) {
   }
 }
 
-// 1. เรนเดอร์โครงสร้าง Pop-up สำหรับเลือกรายการที่จะ Export
 function renderExportSelectorModal() {
   let modal = document.getElementById("exportSelectorModal");
 
@@ -2589,7 +2545,6 @@ function renderExportSelectorModal() {
   modal.innerHTML = `
     <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
       
-      <!-- Header -->
       <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg font-bold shadow-xs">
@@ -2606,10 +2561,8 @@ function renderExportSelectorModal() {
         </button>
       </div>
 
-      <!-- Controls & Quick Selection Tools -->
       <div class="p-4 border-b border-slate-100 bg-slate-50/80 shrink-0 flex flex-wrap items-center justify-between gap-3 text-xs font-bold">
         
-        <!-- เลือกทั้งหมด & จำนวนที่เลือก -->
         <div class="flex items-center gap-3">
           <label class="flex items-center gap-2 cursor-pointer select-none text-slate-700 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
             <input type="checkbox" id="selectAllExportChk" onchange="toggleSelectAllExport(this)" checked class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
@@ -2621,7 +2574,6 @@ function renderExportSelectorModal() {
           </span>
         </div>
 
-        <!-- กรอง & เลือกตามหมวดหมู่ -->
         <div class="flex items-center gap-2 shrink-0">
           <span class="text-slate-500">กรองหมวดหมู่:</span>
           <select id="exportCategoryFilter" onchange="filterExportReviewList()" class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer shadow-2xs">
@@ -2642,12 +2594,8 @@ function renderExportSelectorModal() {
 
       </div>
 
-      <!-- Table Content List -->
-      <div class="p-5 flex-1 overflow-y-auto space-y-2.5" id="exportReviewListContainer">
-        <!-- รายการจะถูกสร้างด้วย JS -->
-      </div>
+      <div class="p-5 flex-1 overflow-y-auto space-y-2.5" id="exportReviewListContainer"></div>
 
-      <!-- Footer Buttons -->
       <div class="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
         <button type="button" onclick="closeExportSelectorModal()" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
           ยกเลิก
@@ -2662,7 +2610,6 @@ function renderExportSelectorModal() {
   `;
 }
 
-// 2. เปิด Modal สำหรับเลือกรายการที่จะ Export
 function openExportSelectorModal() {
   const TEMPLATES_KEY = "form_templates_data";
   const templates = JSON.parse(localStorage.getItem(TEMPLATES_KEY) || "{}");
@@ -2677,13 +2624,11 @@ function openExportSelectorModal() {
   document.getElementById("exportSelectorModal").classList.remove("hidden");
 }
 
-// 3. ปิด Modal เลือกรายการ Export
 function closeExportSelectorModal() {
   const modal = document.getElementById("exportSelectorModal");
   if (modal) modal.classList.add("hidden");
 }
 
-// 4. เรนเดอร์รายการแบบฟอร์มที่มีในระบบสำหรับเลือก Export
 function populateExportReviewList() {
   const container = document.getElementById("exportReviewListContainer");
   const summaryBadge = document.getElementById("exportSummaryBadge");
@@ -2747,12 +2692,10 @@ function populateExportReviewList() {
   updateExportSelectionCount();
 }
 
-// 5. ตัวกรองหมวดหมู่ในหน้า Export Review
 function filterExportReviewList() {
   populateExportReviewList();
 }
 
-// 6. ปุ่มเลือกเฉพาะหมวดหมู่ที่กำลังกรองอยู่
 function selectCategoryExportOnly() {
   const selectedCategoryFilter = document.getElementById("exportCategoryFilter")?.value || "ALL";
   const checkboxes = document.querySelectorAll(".export-item-chk");
@@ -2769,7 +2712,6 @@ function selectCategoryExportOnly() {
   updateExportSelectionCount();
 }
 
-// 7. สลับเลือก/ยกเลิกรายการ Export ทั้งหมด
 function toggleSelectAllExport(masterChk) {
   const checkboxes = document.querySelectorAll(".export-item-chk");
   checkboxes.forEach((chk) => {
@@ -2779,7 +2721,6 @@ function toggleSelectAllExport(masterChk) {
   updateExportSelectionCount();
 }
 
-// 8. อัปเดตจำนวนรายการที่เลือกส่งออกบนปุ่มยืนยัน
 function updateExportSelectionCount() {
   const selectedCount = document.querySelectorAll(".export-item-chk:checked").length;
   const btnText = document.getElementById("btnConfirmExportText");
@@ -2789,7 +2730,6 @@ function updateExportSelectionCount() {
   }
 }
 
-// 9. ยืนยันดาวน์โหลดไฟล์ JSON เฉพาะรายการที่เลือกไว้
 function confirmExportSelectedTemplates() {
   const checkboxes = document.querySelectorAll(".export-item-chk:checked");
   

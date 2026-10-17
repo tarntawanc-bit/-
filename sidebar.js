@@ -1,6 +1,6 @@
 function renderSidebarComponent() {
-    const container = document.getElementById('sidebarComponent');
-    container.innerHTML = `
+  const container = document.getElementById("sidebarComponent");
+  container.innerHTML = `
     <div>
       <div class="p-4 border-b border-slate-800 flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-sky-400 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-500/20 shrink-0">
@@ -28,7 +28,14 @@ function renderSidebarComponent() {
             <i class="fa-solid fa-users-gear w-5 text-center text-base"></i>
             <span>จัดการผู้ใช้งาน</span>
           </div>
-          <span class="px-2 py-0.5 rounded-md text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">Admin Only</span>
+        </button>
+
+        <!-- ปุ่มประวัติข้อมูล (อยู่ใต้จัดการผู้ใช้งาน) -->
+        <button id="historyLogsNavBtn" onclick="openHistoryLogsModal()" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-clock-rotate-left w-5 text-center text-base text-sky-400"></i>
+            <span>ประวัติการทำงาน</span>
+          </div>
         </button>
 
         <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mt-4 mb-1">หมวดหมู่เอกสาร</div>
@@ -57,13 +64,13 @@ function renderSidebarComponent() {
           <span id="side-count-Investment" class="px-2.5 py-0.5 rounded-md text-xs bg-slate-800 text-slate-400">0</span>
         </button>
 
-<button onclick="filterCategory('Certificate')" id="side-nav-Certificate" class="side-nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all">
-  <div class="flex items-center gap-3">
-    <i class="fa-solid fa-certificate text-purple-400 w-5 text-center text-base"></i>
-    <span>Certificate</span>
-  </div>
-  <span id="side-count-Certificate" class="px-2.5 py-0.5 rounded-md text-xs bg-slate-800 text-slate-400">0</span>
-</button>
+        <button onclick="filterCategory('Certificate')" id="side-nav-Certificate" class="side-nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-certificate text-purple-400 w-5 text-center text-base"></i>
+            <span>Certificate</span>
+          </div>
+          <span id="side-count-Certificate" class="px-2.5 py-0.5 rounded-md text-xs bg-slate-800 text-slate-400">0</span>
+        </button>
       </nav>
     </div>
 

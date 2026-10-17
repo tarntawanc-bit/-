@@ -7,9 +7,16 @@ function renderHeaderComponent() {
     </div>
 
     <div class="flex items-center gap-3">
+      <!-- ปุ่ม นำเข้าไฟล์ PDF -->
       <button id="docUploadBtn" onclick="openUploadModal()" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-md transition-all active:scale-95">
         <i class="fa-solid fa-cloud-arrow-up text-base"></i>
         <span>นำเข้าไฟล์ PDF</span>
+      </button>
+
+      <!-- ปุ่ม Export PDF -->
+      <button id="docExportBtn" onclick="handleExportPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-md transition-all active:scale-95">
+        <i class="fa-solid fa-file-pdf text-base"></i>
+        <span>Export PDF</span>
       </button>
 
       <div class="flex items-center gap-3 pl-3 border-l border-slate-200">
