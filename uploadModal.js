@@ -8,12 +8,59 @@ let startX = 0, startY = 0;
 let isImportDarkMode = false;
 let quotationTargetField = "";
 let pendingImportTemplates = {};
-// วัตถุเก็บพิกัดลากคลุมแยกรายฟิลด์ { fieldId: { pageNum, pdfX, pdfY, pdfW, pdfH } }
 let fieldBoxes = {};
-
-// ตัวแปรเก็บการเลือกฟิลด์ในปัจจุบัน
 let activeCategoryFields = [];
 
+// =========================================================================
+// 🔹 Helper Function: สร้าง Code ID อัตโนมัติ รันแยกตามหมวดหมู่เอกสาร + YYMM-XXXXX
+// ตัวอย่าง: Q2610-00001, INV2610-00001, INVT2610-00001, CERT2610-00001
+// =========================================================================
+function generateCodeIdByDepartment(categoryName, departmentName, allDocs = []) {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+
+  const categoryPrefixes = {
+    Quotation: "Q",
+    Invoice: "INV",
+    Investment: "INVT",
+    Certificate: "CERT",
+  };
+
+  const catPrefix = categoryPrefixes[categoryName] || "DOC";
+  const fullPrefix = `${catPrefix}${yy}${mm}-`;
+
+  const targetCategory = (categoryName || '').trim().toLowerCase();
+
+  const categoryDocs = allDocs.filter(doc => {
+    const docCat = (doc.category || '').trim().toLowerCase();
+    const docCodeId = String(doc.codeId || '').trim();
+    return docCat === targetCategory && docCodeId.startsWith(fullPrefix);
+  });
+
+  let maxSeq = 0;
+  categoryDocs.forEach(doc => {
+    const codeId = String(doc.codeId || '').trim();
+    const parts = codeId.split('-');
+    if (parts.length === 2) {
+      const seqNum = parseInt(parts[1], 10);
+      if (!isNaN(seqNum) && seqNum > maxSeq) {
+        maxSeq = seqNum;
+      }
+    }
+  });
+
+  const nextSeq = String(maxSeq + 1).padStart(5, '0');
+  return `${fullPrefix}${nextSeq}`;
+}
+
+// ฟังก์ชันสร้าง Code ID สำรอง
+function generateDocumentCodeId() {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  return `${yy}${mm}-00001`;
+}
 // กำหนดค่าเริ่มต้นของ Box Field แต่ละหมวดหมู่เอกสาร
 function getDefaultCategoryFields() {
   const CUSTOM_FIELDS_KEY = "custom_fields_data";
@@ -65,10 +112,10 @@ function renderUploadModal() {
       <!-- Top Bar Toolbar (ป้องกันการล้น + ซ่อน Scrollbar) -->
       <div id="importTopBar" class="w-full px-4 py-2 bg-slate-100 text-slate-800 flex items-center justify-between gap-3 shrink-0 border-b border-slate-200 shadow-xs transition-colors duration-200">
         
-        <!-- กลุ่มเครื่องมือด้านซ้าย-กลาง (ใช้ overflow-x-auto + [scrollbar-width:none] เพื่อเลื่อนได้โดยไม่มี Slide bar) -->
+        <!-- กลุ่มเครื่องมือด้านซ้าย-กลาง -->
         <div class="flex-1 flex flex-nowrap items-center gap-2.5 max-w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1">
           
-          <!-- 1. โลโก้ + เลือกไฟล์ PDF (เพิ่มไอคอนหน้าข้อความแล้ว) -->
+          <!-- 1. โลโก้ + เลือกไฟล์ PDF -->
           <div class="flex items-center gap-2 shrink-0">
             <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
               <i class="fa-solid fa-file-signature"></i>
@@ -336,10 +383,7 @@ function onCategoryChanged() {
   const allCategoryFields = getAllCategoryFieldsData();
   activeCategoryFields = allCategoryFields[category] || [];
 
-  // เรนเดอร์ UI ฟิลด์ประจำหมวดหมู่
   renderDynamicFieldsUI();
-
-  // รีเฟรชรายการแบบฟอร์มใน Dropdown ให้ตรงกับหมวดหมู่ใหม่ทันที
   refreshTemplateDropdown();
 }
 
@@ -853,15 +897,21 @@ function clearAllBoxes() {
   });
   drawAllSelectionBoxes();
 }
-
+// =========================================================================
+// 🔹 ฟังก์ชันจัดการบันทึกข้อมูล (ปรับปรุง Audit Log + ล็อก Code ID เมื่อแก้ไข)
+// =========================================================================
+// =========================================================================
+// 🔹 ฟังก์ชันจัดการบันทึกข้อมูล (ปรับปรุง Audit Log + ล็อก Code ID เมื่อแก้ไข)
+// =========================================================================
 function handleUploadSubmit(e) {
   e.preventDefault();
-  if (currentUser.role !== "ADMIN" && currentUser.role !== "EDITOR") return;
+  if (currentUser && currentUser.role !== "ADMIN" && currentUser.role !== "EDITOR") return;
 
-  const editId = document.getElementById("editDocId").value;
+  const editId = document.getElementById("editDocId") ? document.getElementById("editDocId").value : null;
   const fileInput = document.getElementById("pdfFileInput");
-  const file = fileInput.files[0];
-  const category = document.getElementById("fileCategory").value;
+  const file = fileInput ? fileInput.files[0] : null;
+  const categoryEl = document.getElementById("fileCategory");
+  const category = categoryEl ? categoryEl.value : "Quotation";
 
   const boxValues = {};
   const fieldsData = [];
@@ -869,7 +919,7 @@ function handleUploadSubmit(e) {
   const currentCategoryFields =
     typeof getAllCategoryFieldsData === "function"
       ? getAllCategoryFieldsData()[category] || []
-      : activeCategoryFields;
+      : (activeCategoryFields.length > 0 ? activeCategoryFields : getDefaultCategoryFields()[category] || []);
 
   currentCategoryFields.forEach((f) => {
     const inp = document.getElementById(`val-field-${f.id}`);
@@ -891,7 +941,6 @@ function handleUploadSubmit(e) {
   const dateVal =
     boxValues["q_date"] || boxValues["inv_date"] || boxValues["invt_date"] || boxValues["cert_date"] || Object.values(boxValues)[3] || "";
 
-  // ดึงข้อมูลแผนก
   const deptVal = 
     boxValues["q_dept"] || 
     boxValues["inv_dept"] || 
@@ -899,14 +948,11 @@ function handleUploadSubmit(e) {
     boxValues["cert_dept"] || 
     boxValues["department"] || 
     boxValues["dept"] || 
-    (currentUser ? (currentUser.department || currentUser.dept || currentUser.section || "") : "");
+    (currentUser ? (currentUser.department || currentUser.dept || currentUser.section || "") : "") || "-";
 
   const fallbackTitle = [docNumVal, companyVal, detailVal].filter(Boolean).join(" - ") || "เอกสารไม่มีชื่อ";
   const nowStr = typeof getFormattedDateTime === "function" ? getFormattedDateTime() : new Date().toLocaleString("th-TH");
 
-  // =========================================================================
-  // 🔹 ดึงข้อมูลผู้บันทึกข้อมูล (Full Name & Employee ID)
-  // =========================================================================
   const activeUser = window.currentUser || window.user || window.loggedInUser || (typeof currentUser !== "undefined" ? currentUser : {});
   const allUsers = window.usersList || window.employees || window.userList || [];
 
@@ -932,11 +978,17 @@ function handleUploadSubmit(e) {
     department: deptVal || matchedUser.department || matchedUser.dept || activeUser.department || activeUser.dept || "-"
   };
 
-  // 🔹 สร้างข้อความสำหรับ Log ให้เข้าโครงสร้างมาตรฐาน 3 บรรทัด: "Doc No (Company) | Detail"
-  const logDetailText = `${docNumVal || '-'}${companyVal ? ` (${companyVal})` : ''} | ${detailVal || '-'}`;
+  const baseLogText = `${docNumVal || '-'}${companyVal ? ` (${companyVal})` : ''} | ${detailVal || '-'}`;
 
+  // 🔒 กรณีที่ 1: แก้ไขเอกสารเดิม (Edit Mode) -> บันทึก Update By และ Update Date ทับ
   if (editId) {
     getDocById(Number(editId), (doc) => {
+      if (!doc) return;
+
+      const beforeState = JSON.parse(JSON.stringify(doc));
+      const preservedCodeId = doc.codeId || (beforeState ? beforeState.codeId : null);
+
+      doc.codeId = preservedCodeId;
       doc.docNumber = docNumVal;
       doc.companyName = companyVal;
       doc.productDetail = detailVal;
@@ -946,9 +998,9 @@ function handleUploadSubmit(e) {
       doc.title = fallbackTitle;
       doc.category = category;
 
+      // บันทึกเฉพาะตอนกดแก้ไขเอกสารเดิมเท่านั้น
       doc.updateDate = nowStr;
       doc.formattedUpdateDate = nowStr;
-
       doc.updatedBy = userFullName;
       doc.updatedByEmpId = userEmployeeId;
 
@@ -964,60 +1016,86 @@ function handleUploadSubmit(e) {
       }
 
       saveDoc(doc, () => {
-        // 🔹 เรียกฟังก์ชันบันทึก Audit Log (กรณี UPDATE)
         if (window.addAuditLog) {
-          window.addAuditLog("UPDATE", logDetailText, category, userInfoForLog);
+          const logTextWithCode = `[Code ID: ${preservedCodeId || '-'}] ${baseLogText}`;
+          window.addAuditLog("UPDATE", logTextWithCode, category, userInfoForLog, beforeState);
         }
 
         closeUploadModal();
-        renderAll();
+        if (typeof renderAll === "function") renderAll();
+        if (typeof applyFilters === "function") applyFilters();
       });
     });
-  } else {
+  } 
+  // 🆕 กรณีที่ 2: นำเข้าเอกสารใหม่ (Create Mode) -> บังคับไม่ต้องมีข้อมูล Update by เด็ดขาด
+  else {
     if (!file) {
-      alert("กรุณาเลือกไฟล์ PDF");
+      alert("กรุณาเลือกไฟล์ PDF ที่ต้องการนำเข้า");
       return;
     }
 
-    const docData = {
-      docNumber: docNumVal,
-      companyName: companyVal,
-      productDetail: detailVal,
-      department: deptVal,
-      empDept: deptVal,
-      employeeDepartment: deptVal,
-      docDate: dateVal,
-      title: fallbackTitle,
-      category: category,
-      originalName: file.name,
-      rawSize: file.size,
-      formattedSize: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-      createDate: nowStr,
-      formattedDate: nowStr,
-      updateDate: "",
-      formattedUpdateDate: "",
+    const processSaveNewDoc = (allDocsList = []) => {
+      const generatedCodeId = generateCodeIdByDepartment(category, deptVal, allDocsList);
 
-      createdBy: userFullName,
-      createdByName: userFullName,
-      createdByEmpId: userEmployeeId,
-      employeeId: userEmployeeId,
-      empId: userEmployeeId,
+      const docData = {
+        id: Date.now(),
+        codeId: generatedCodeId,
+        docNumber: docNumVal,
+        companyName: companyVal,
+        productDetail: detailVal,
+        department: deptVal,
+        empDept: deptVal,
+        employeeDepartment: deptVal,
+        docDate: dateVal,
+        title: fallbackTitle,
+        category: category,
+        originalName: file.name,
+        rawSize: file.size,
+        formattedSize: (file.size / (1024 * 1024)).toFixed(2) + " MB",
+        createDate: nowStr,
+        formattedDate: nowStr,
+        
+        // 🔒 บังคับเคลียร์ค่าเป็นว่าง เพื่อไม่ให้บันทึกผู้แก้ไขตอน Import PDF ใหม่
+        updateDate: "",
+        formattedUpdateDate: "",
+        updatedBy: "",
+        updatedByEmpId: "",
 
-      fileBlob: file,
-      boxValues: boxValues,
-      fieldsData: fieldsData,
-      fieldBoxes: JSON.parse(JSON.stringify(fieldBoxes || {})),
+        createdBy: userFullName,
+        createdByName: userFullName,
+        createdByEmpId: userEmployeeId,
+        employeeId: userEmployeeId,
+        empId: userEmployeeId,
+
+        fileBlob: file,
+        boxValues: boxValues,
+        fieldsData: fieldsData,
+        fieldBoxes: JSON.parse(JSON.stringify(fieldBoxes || {})),
+      };
+
+      // 💡 ลบ property เกี่ยวกับ Update ออกจาก Object เพื่อป้องกันการบันทึกค่าใดๆ
+      delete docData.updatedBy;
+      delete docData.updatedByEmpId;
+      delete docData.updateDate;
+      delete docData.formattedUpdateDate;
+
+      saveDoc(docData, () => {
+        if (window.addAuditLog) {
+          const logTextWithCode = `[Code ID: ${generatedCodeId}] ${baseLogText}`;
+          window.addAuditLog("CREATE", logTextWithCode, category, userInfoForLog);
+        }
+
+        closeUploadModal();
+        if (typeof renderAll === "function") renderAll();
+        if (typeof applyFilters === "function") applyFilters();
+      });
     };
 
-    saveDoc(docData, () => {
-      // 🔹 เรียกฟังก์ชันบันทึก Audit Log (กรณี CREATE)
-      if (window.addAuditLog) {
-        window.addAuditLog("CREATE", logDetailText, category, userInfoForLog);
-      }
-
-      closeUploadModal();
-      renderAll();
-    });
+    if (typeof getAllDocs === "function") {
+      getAllDocs((allDocs) => processSaveNewDoc(allDocs));
+    } else {
+      processSaveNewDoc([]);
+    }
   }
 }
 
@@ -1034,9 +1112,11 @@ function openUploadModal() {
 }
 
 function closeUploadModal() {
-  document.getElementById("uploadModal").classList.add("hidden");
-  resetCanvasToInitialState();
+  const modal = document.getElementById("uploadModal");
+  if (modal) modal.classList.add("hidden");
 }
+window.handleUploadSubmit = handleUploadSubmit;
+window.closeUploadModal = closeUploadModal;
 
 window.addEventListener("resize", () => {
   if (

@@ -4,8 +4,24 @@ let itemsPerPage = 10;
 let selectedDocIds = new Set();
 let isSelectionMode = false;
 
+// Helper สกัดตัดเอาเฉพาะวันที่ (DD/MM/YYYY หรือ YYYY-MM-DD) โดยตัดเวลาออก
+function formatOnlyDateStr(dateStr) {
+  if (!dateStr || dateStr === '-') return '-';
+  const cleanStr = String(dateStr).trim();
+  
+  // หากมีตัว T (เช่น ISO String 2026-10-18T20:30:00)
+  if (cleanStr.includes('T')) {
+    return cleanStr.split('T')[0];
+  }
+  
+  // แยกส่วนด้วยช่องว่าง หรือ comma (เช่น "18/10/2026 20:30:00" -> "18/10/2026")
+  const parts = cleanStr.split(/[\s,]+/);
+  return parts[0] || '-';
+}
+
 function renderDashboardComponent() {
   const container = document.getElementById('dashboardComponent');
+  // 🔒 ปุ่มนำเข้า/อัปโหลดสำหรับ Admin และ Editor
   const canManageDocs = currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'EDITOR');
 
   container.innerHTML = `
@@ -50,15 +66,12 @@ function renderDashboardComponent() {
 
     <!-- Search & Filters Bar -->
     <div class="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-3 shrink-0 w-full">
-      
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 flex-1 min-w-0">
-        <!-- 1. ค้นหาข้อความ -->
         <div class="relative w-full min-w-0">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
           <input type="text" id="textSearchInput" oninput="applyFilters(true)" placeholder="พิมพ์คำค้นหา..." class="w-full pl-8 pr-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all truncate">
         </div>
 
-        <!-- 2. เลือกบริษัท -->
         <div class="flex items-center gap-1.5 w-full min-w-0">
           <i class="fa-solid fa-building text-emerald-500 text-xs shrink-0"></i>
           <select id="companyDropdownFilter" onchange="applyFilters(true)" class="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all cursor-pointer truncate">
@@ -66,7 +79,6 @@ function renderDashboardComponent() {
           </select>
         </div>
 
-        <!-- 3. เลือกแผนก -->
         <div class="flex items-center gap-1.5 w-full min-w-0">
           <i class="fa-solid fa-sitemap text-cyan-500 text-xs shrink-0"></i>
           <select id="deptDropdownFilter" onchange="applyFilters(true)" class="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all cursor-pointer truncate">
@@ -74,7 +86,6 @@ function renderDashboardComponent() {
           </select>
         </div>
 
-        <!-- 4. เลือกหมวดหมู่ -->
         <div class="flex items-center gap-1.5 w-full min-w-0">
           <i class="fa-solid fa-tags text-purple-500 text-xs shrink-0"></i>
           <select id="categoryDropdownFilter" onchange="onCategoryDropdownChange(this.value)" class="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all cursor-pointer truncate">
@@ -90,18 +101,12 @@ function renderDashboardComponent() {
       <!-- Action Buttons -->
       <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
         <div id="exportPdfActionContainer" class="hidden flex items-center gap-1.5 bg-emerald-50 p-1 rounded-xl border border-emerald-200">
-          <button onclick="selectAllCurrentDocs(true)" class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-all">
-            เลือกทั้งหมด
-          </button>
-
+          <button onclick="selectAllCurrentDocs(true)" class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-all">เลือกทั้งหมด</button>
           <button onclick="confirmAndDownloadSelectedPDFs()" id="btnConfirmExportPdf" disabled class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95">
             <i class="fa-solid fa-file-arrow-down"></i>
             <span id="btnConfirmExportPdfText">ยืนยันดึง PDF (0)</span>
           </button>
-
-          <button onclick="exitExportPdfMode()" class="px-2 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-500 hover:text-slate-800 transition-all">
-            ยกเลิก
-          </button>
+          <button onclick="exitExportPdfMode()" class="px-2 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-500 hover:text-slate-800 transition-all">ยกเลิก</button>
         </div>
 
         ${canManageDocs ? `
@@ -117,25 +122,19 @@ function renderDashboardComponent() {
         </label>
         ` : ''}
 
-        <div id="docBulkActionControls" class="hidden items-center gap-2 shrink-0">
+        <div id="docBulkActionControls" class="${canManageDocs ? 'flex' : 'hidden'} items-center gap-2 shrink-0">
           <button id="btnToggleSelectionMode" onclick="toggleSelectionMode()" class="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all active:scale-95 whitespace-nowrap">
             <i class="fa-solid fa-list-check text-xs"></i>
             <span>เลือกรายการลบ</span>
           </button>
 
           <div id="bulkActionContainer" class="hidden flex items-center gap-1.5">
-            <button onclick="selectAllCurrentDocs(true)" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all">
-              เลือกทั้งหมด
-            </button>
-
-            <button onclick="deleteSelectedDocs()" id="btnDeleteSelected" disabled class="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 active:scale-95">
+            <button onclick="selectAllCurrentDocs(true)" class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all">เลือกทั้งหมด</button>
+            <button onclick="deleteSelectedDocs()" id="btnDeleteSelected" disabled class="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 active:scale-95">
               <i class="fa-solid fa-trash-can text-xs"></i>
               <span id="btnDeleteText">ลบที่เลือก (0)</span>
             </button>
-
-            <button onclick="toggleSelectionMode(false)" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all">
-              ยกเลิก
-            </button>
+            <button onclick="toggleSelectionMode(false)" class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all">ยกเลิก</button>
           </div>
         </div>
       </div>
@@ -252,13 +251,15 @@ function applyFilters(resetPage = false) {
 
       let matchText = true;
       if (searchKeyword.length > 0) {
+        const docCodeId = (doc.codeId || '').toLowerCase();
         const docNum = extractDocFieldValue(doc, 'docNumber').toLowerCase();
         const company = docCompanyRaw.toLowerCase();
         const product = extractDocFieldValue(doc, 'productDetail').toLowerCase();
         const dept = docDept.toLowerCase();
         const fileName = (doc.originalName || '').toLowerCase();
 
-        matchText = docNum.includes(searchKeyword) || 
+        matchText = docCodeId.includes(searchKeyword) ||
+                    docNum.includes(searchKeyword) || 
                     company.includes(searchKeyword) || 
                     product.includes(searchKeyword) || 
                     dept.includes(searchKeyword) || 
@@ -315,75 +316,82 @@ function renderDocuments(docs) {
   
   const thCheckboxClass = isSelectionMode ? '' : 'hidden';
 
-  const colDocNum = isSelectionMode ? 'w-[8%]' : 'w-[10%]';
-  const colCompany = isSelectionMode ? 'w-[14%]' : 'w-[15%]';
-  const colProduct = isSelectionMode ? 'w-[18%]' : 'w-[19%]';
-  const colDept = 'w-[11%]';
-  const colCat = 'w-[9%]';
-  const colDocDate = 'w-[8%]';
-  const colCreateDate = 'w-[10%]';
-  const colUpdateDate = 'w-[9%]';
-  const colManage = 'w-[9%]';
+  const colCodeId     = isSelectionMode ? 'w-[9%]'  : 'w-[10%]';
+  const colDocNum     = isSelectionMode ? 'w-[8%]'  : 'w-[9%]';
+  const colCompany    = isSelectionMode ? 'w-[14%]' : 'w-[17%]';
+  const colProduct    = isSelectionMode ? 'w-[18%]' : 'w-[17%]';
+  const colDept       = isSelectionMode ? 'w-[9%]'  : 'w-[9%]';
+  const colCat        = isSelectionMode ? 'w-[8%]'  : 'w-[8%]';
+  const colDocDate    = isSelectionMode ? 'w-[7%]'  : 'w-[7%]';
+  const colCreateDate = isSelectionMode ? 'w-[8%]'  : 'w-[8%]';
+  const colUpdateDate = isSelectionMode ? 'w-[9%]'  : 'w-[8%]';
+  const colManage     = isSelectionMode ? 'w-[7%]'  : 'w-[9%]';
 
   table.innerHTML = `
     <div class="w-full overflow-y-auto flex-1 h-full">
       <table class="w-full text-left text-xs table-fixed border-collapse">
-        <thead class="bg-slate-800 text-slate-100 border-b-2 border-slate-300 font-extrabold sticky top-0 z-10 text-sm uppercase tracking-tight shadow-xs">
+        <thead class="bg-slate-800 text-slate-100 border-b-2 border-slate-300 font-extrabold sticky top-0 z-10 text-xs uppercase tracking-tight shadow-xs">
           <tr>
             <th class="py-3 px-1 w-[3%] text-center border-r border-slate-700 ${thCheckboxClass}">
               <input type="checkbox" onchange="toggleSelectAllDocsHeader(this)" class="w-4 h-4 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500 cursor-pointer" title="เลือกทั้งหมด">
             </th>
-            <th class="py-3 px-2 ${colDocNum} border-r border-slate-700">
-              <div class="flex items-center gap-1.5 truncate" title="Doc No.">
-                <i class="fa-solid fa-file-lines text-indigo-300 text-sm shrink-0"></i>
+            <th class="py-3 px-1.5 ${colCodeId} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1 truncate" title="Code ID">
+                <i class="fa-solid fa-barcode text-amber-400 text-xs shrink-0"></i>
+                <span class="truncate">Code ID</span>
+              </div>
+            </th>
+            <th class="py-3 px-1.5 ${colDocNum} border-r border-slate-700">
+              <div class="flex items-center gap-1 truncate" title="Doc No.">
+                <i class="fa-solid fa-file-lines text-indigo-300 text-xs shrink-0"></i>
                 <span class="truncate">Doc No.</span>
               </div>
             </th>
-            <th class="py-3 px-2 ${colCompany} border-r border-slate-700">
-              <div class="flex items-center gap-1.5 truncate" title="Company">
-                <i class="fa-solid fa-building text-emerald-300 text-sm shrink-0"></i>
+            <th class="py-3 px-1.5 ${colCompany} border-r border-slate-700">
+              <div class="flex items-center gap-1 truncate" title="Company">
+                <i class="fa-solid fa-building text-emerald-300 text-xs shrink-0"></i>
                 <span class="truncate">Company</span>
               </div>
             </th>
-            <th class="py-3 px-2 ${colProduct} border-r border-slate-700">
-              <div class="flex items-center gap-1.5 truncate" title="Detail">
-                <i class="fa-solid fa-box-open text-amber-300 text-sm shrink-0"></i>
+            <th class="py-3 px-1.5 ${colProduct} border-r border-slate-700">
+              <div class="flex items-center gap-1 truncate" title="Detail">
+                <i class="fa-solid fa-box-open text-amber-300 text-xs shrink-0"></i>
                 <span class="truncate">Detail</span>
               </div>
             </th>
-            <th class="py-3 px-1.5 ${colDept} text-center border-r border-slate-700">
-              <div class="flex items-center justify-center gap-1.5 truncate" title="Department">
-                <i class="fa-solid fa-sitemap text-cyan-300 text-sm shrink-0"></i>
+            <th class="py-3 px-1 ${colDept} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1 truncate" title="Department">
+                <i class="fa-solid fa-sitemap text-cyan-300 text-xs shrink-0"></i>
                 <span class="truncate">Department</span>
               </div>
             </th>
-            <th class="py-3 px-1.5 ${colCat} text-center border-r border-slate-700">
-              <div class="flex items-center justify-center gap-1.5 truncate" title="Category">
-                <i class="fa-solid fa-tags text-purple-300 text-sm shrink-0"></i>
+            <th class="py-3 px-1 ${colCat} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1 truncate" title="Category">
+                <i class="fa-solid fa-tags text-purple-300 text-xs shrink-0"></i>
                 <span class="truncate">Category</span>
               </div>
             </th>
-            <th class="py-3 px-1.5 ${colDocDate} text-center border-r border-slate-700">
-              <div class="flex items-center justify-center gap-1.5 truncate" title="Date">
-                <i class="fa-solid fa-calendar-day text-sky-300 text-sm shrink-0"></i>
+            <th class="py-3 px-1 ${colDocDate} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1 truncate" title="Date">
+                <i class="fa-solid fa-calendar-day text-sky-300 text-xs shrink-0"></i>
                 <span class="truncate">Date</span>
               </div>
             </th>
-            <th class="py-3 px-1.5 ${colCreateDate} text-center border-r border-slate-700">
-              <div class="flex items-center justify-center gap-1.5 truncate" title="Create Date">
-                <i class="fa-solid fa-clock text-rose-300 text-sm shrink-0"></i>
-                <span class="truncate">Create Date</span>
+            <th class="py-3 px-1 ${colCreateDate} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1 truncate" title="Create Date">
+                <i class="fa-solid fa-clock text-rose-300 text-xs shrink-0"></i>
+                <span class="truncate">Create</span>
               </div>
             </th>
-            <th class="py-3 px-1.5 ${colUpdateDate} text-center border-r border-slate-700">
-              <div class="flex items-center justify-center gap-1.5 truncate" title="Update By">
-                <i class="fa-solid fa-user-pen text-teal-300 text-sm shrink-0"></i>
+            <th class="py-3 px-1 ${colUpdateDate} text-center border-r border-slate-700">
+              <div class="flex items-center justify-center gap-1 truncate" title="Update By">
+                <i class="fa-solid fa-user-pen text-teal-300 text-xs shrink-0"></i>
                 <span class="truncate">Update By</span>
               </div>
             </th>
-            <th class="py-3 px-1.5 ${colManage} text-center">
-              <div class="flex items-center justify-center gap-1.5 truncate" title="Manage">
-                <i class="fa-solid fa-sliders text-slate-300 text-sm shrink-0"></i>
+            <th class="py-3 px-1 ${colManage} text-center">
+              <div class="flex items-center justify-center gap-1 truncate" title="Manage">
+                <i class="fa-solid fa-sliders text-slate-300 text-xs shrink-0"></i>
                 <span class="truncate">Manage</span>
               </div>
             </th>
@@ -394,15 +402,20 @@ function renderDocuments(docs) {
           ${docs.map(doc => {
             const isChecked = selectedDocIds.has(doc.id) ? 'checked' : '';
             
+            const codeIdStr = doc.codeId || '-';
             const docNumStr = extractDocFieldValue(doc, 'docNumber');
             const companyStr = extractDocFieldValue(doc, 'companyName');
             const productStr = extractDocFieldValue(doc, 'productDetail');
             const deptStr = extractDocFieldValue(doc, 'department') || '-';
-            const importedDateStr = extractImportedDocDate(doc);
             
-            const createDateStr = doc.formattedDate || doc.createDate || '';
-            const updatedByStr = doc.updatedBy || doc.updateBy || doc.updatedByEmpId || '-';
+            // 🔒 สกัดเอาเฉพาะวันที่ ตัดส่วนเวลาออกก่อนแสดงผล
+            const importedDateStr = formatOnlyDateStr(extractImportedDocDate(doc));
+            const createDateStr = formatOnlyDateStr(doc.formattedDate || doc.createDate || '');
+            
+            const rawUpdater = doc.updatedBy || doc.updatedByEmpId || doc.updateBy || '';
+            const updatedByStr = (rawUpdater && String(rawUpdater).trim() !== '') ? String(rawUpdater).trim() : '-';
 
+            // 🔒 ตรวจสอบสิทธิ์แก้ไข/ลบเฉพาะกรณี Editor แผนกนั้นๆ หรือ Admin
             const canEditThisDoc = canUserEditDoc(doc);
 
             return `
@@ -411,62 +424,60 @@ function renderDocuments(docs) {
                 <input type="checkbox" value="${doc.id}" ${isChecked} onchange="toggleDocSelection(${doc.id}, this.checked)" class="doc-checkbox w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
               </td>
 
-              <!-- 1. Document No. -->
-              <td class="py-2.5 px-2 font-bold text-indigo-700 cursor-pointer hover:underline border-r border-slate-300">
-                <div class="truncate" onclick="openViewerModal(${doc.id})" title="${escapeHtml(docNumStr)}">
-                  <span class="truncate text-[13px] font-bold block">${escapeHtml(docNumStr)}</span>
-                </div>
-              </td>
-
-              <!-- 2. Company -->
-              <td class="py-2.5 px-2 font-semibold text-emerald-800 border-r border-slate-300">
-                <div class="truncate" title="${escapeHtml(companyStr)}">
-                  <span class="truncate text-[13px] block">${escapeHtml(companyStr)}</span>
-                </div>
-              </td>
-
-              <!-- 3. Detail -->
-              <td class="py-2.5 px-2 text-slate-800 border-r border-slate-300">
-                <div title="${escapeHtml(productStr)}">
-                  <span class="line-clamp-2 text-[13px] leading-tight block overflow-hidden break-words" style="max-height: 2.6em;">${escapeHtml(productStr)}</span>
-                </div>
-              </td>
-
-              <!-- 4. Department Data -->
-              <td class="py-2.5 px-2 text-center font-medium text-slate-700 border-r border-slate-300">
-                <div class="truncate" title="${escapeHtml(deptStr)}">
-                  <span class="truncate text-[13px] block text-center">${escapeHtml(deptStr)}</span>
-                </div>
-              </td>
-
-              <!-- Category -->
               <td class="py-2.5 px-1.5 text-center border-r border-slate-300">
-                <span class="inline-block px-2 py-0.5 rounded-lg text-xs font-extrabold truncate max-w-full ${getCategoryStyle(doc.category)}">${doc.category || ''}</span>
+                <span class="px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-md font-mono font-extrabold text-[11px] inline-block truncate max-w-full" title="${escapeHtml(codeIdStr)}">
+                  ${escapeHtml(codeIdStr)}
+                </span>
               </td>
 
-              <!-- Date -->
-              <td class="py-2.5 px-1.5 text-center text-slate-700 border-r border-slate-300">
-                <div class="text-[13px] font-semibold text-slate-800 truncate" title="${escapeHtml(importedDateStr)}">${escapeHtml(importedDateStr)}</div>
+              <td class="py-2.5 px-1.5 font-bold text-indigo-700 cursor-pointer hover:underline border-r border-slate-300">
+                <div class="truncate" onclick="openViewerModal(${doc.id})" title="${escapeHtml(docNumStr)}">
+                  <span class="truncate text-xs font-bold block">${escapeHtml(docNumStr)}</span>
+                </div>
               </td>
 
-              <!-- Create Date -->
-              <td class="py-2.5 px-1.5 text-center text-slate-600 border-r border-slate-300">
-                <div class="text-[13px] font-medium text-slate-800 truncate" title="${escapeHtml(createDateStr)}">${escapeHtml(createDateStr)}</div>
+              <td class="py-2.5 px-1.5 font-semibold text-emerald-800 border-r border-slate-300">
+                <div class="truncate" title="${escapeHtml(companyStr)}">
+                  <span class="truncate text-xs block">${escapeHtml(companyStr)}</span>
+                </div>
               </td>
 
-              <!-- Update By -->
-              <td class="py-2.5 px-1.5 text-center text-slate-600 border-r border-slate-300">
-                <div class="text-[13px] font-medium text-slate-800 truncate" title="${escapeHtml(updatedByStr)}">${escapeHtml(updatedByStr)}</div>
+              <td class="py-2.5 px-1.5 text-slate-800 border-r border-slate-300">
+                <div title="${escapeHtml(productStr)}">
+                  <span class="line-clamp-2 text-xs leading-tight block overflow-hidden break-words" style="max-height: 2.5em;">${escapeHtml(productStr)}</span>
+                </div>
               </td>
 
-              <!-- Manage Controls -->
-              <td class="py-2.5 px-1.5 text-center relative">
-                <button onclick="toggleActionMenu(${doc.id}, event)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 px-2 py-1 rounded-lg font-bold text-xs border border-slate-300 transition-all flex items-center justify-center gap-1 mx-auto active:scale-95 shadow-2xs w-full max-w-[72px]">
+              <td class="py-2.5 px-1 text-center font-medium text-slate-700 border-r border-slate-300">
+                <div class="truncate" title="${escapeHtml(deptStr)}">
+                  <span class="truncate text-xs block text-center">${escapeHtml(deptStr)}</span>
+                </div>
+              </td>
+
+              <td class="py-2.5 px-1 text-center border-r border-slate-300">
+                <span class="inline-block px-1.5 py-0.5 rounded-lg text-[11px] font-extrabold truncate max-w-full ${getCategoryStyle(doc.category)}">${doc.category || ''}</span>
+              </td>
+
+              <td class="py-2.5 px-1 text-center text-slate-700 border-r border-slate-300">
+                <div class="text-xs font-semibold text-slate-800 truncate" title="${escapeHtml(importedDateStr)}">${escapeHtml(importedDateStr)}</div>
+              </td>
+
+              <td class="py-2.5 px-1 text-center text-slate-600 border-r border-slate-300">
+                <div class="text-xs font-medium text-slate-800 truncate" title="${escapeHtml(createDateStr)}">${escapeHtml(createDateStr)}</div>
+              </td>
+
+              <td class="py-2.5 px-1 text-center text-slate-600 border-r border-slate-300">
+                <div class="text-xs font-bold text-indigo-900 truncate" title="${escapeHtml(updatedByStr)}">${escapeHtml(updatedByStr)}</div>
+              </td>
+
+              <td class="py-2.5 px-1 text-center relative">
+                <button onclick="toggleActionMenu(${doc.id}, event)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 px-1.5 py-1 rounded-lg font-bold text-[11px] border border-slate-300 transition-all flex items-center justify-center gap-1 mx-auto active:scale-95 shadow-2xs w-full">
                   <span>จัดการ</span>
-                  <i class="fa-solid fa-chevron-down text-[9px] text-slate-500"></i>
+                  <i class="fa-solid fa-chevron-down text-[8px] text-slate-500"></i>
                 </button>
 
                 <div id="dropdown-menu-${doc.id}" class="hidden absolute right-2 top-9 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 w-44 z-30 text-left space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                  <!-- ทุกสิทธิ์สามารถดูและดาวน์โหลดเอกสารได้ -->
                   <button onclick="openViewerModal(${doc.id})" class="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all flex items-center gap-2.5">
                     <i class="fa-solid fa-eye text-indigo-500 w-4 text-center"></i>
                     <span>ดูเอกสาร</span>
@@ -480,6 +491,7 @@ function renderDocuments(docs) {
                   ${canEditThisDoc ? `
                   <div class="h-px bg-slate-200 my-1"></div>
 
+                  <!-- แสดงเมนูแก้ไข/ลบ เฉพาะ Editor ของแผนกนั้นๆ และ Admin -->
                   <button onclick="openEditModalFromDashboard(${doc.id})" class="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-amber-600 hover:bg-amber-50/80 transition-all flex items-center gap-2.5">
                     <i class="fa-solid fa-pen-to-square text-amber-500 w-4 text-center"></i>
                     <span>แก้ไขข้อมูล/ไฟล์</span>
@@ -501,14 +513,16 @@ function renderDocuments(docs) {
   container.appendChild(table);
 }
 
-/**
- * 🔹 ฟังก์ชันสำหรับบันทึกการแก้ไขข้อมูลพร้อมส่ง beforeState สำหรับ Restore
- */
 function handleSaveEditedDocument(docId, newFormData) {
   getDocById(docId, oldDoc => {
     if (!oldDoc) return;
 
-    // 1. Deep Copy ข้อมูลเดิมก่อนแก้ไขเก็บไว้ใน beforeState
+    // 🔒 ตรวจสอบสิทธิ์อีกครั้งก่อนบันทึกแก้ไข
+    if (!canUserEditDoc(oldDoc)) {
+      alert("คุณไม่มีสิทธิ์แก้ไขเอกสารของแผนกนี้");
+      return;
+    }
+
     const beforeState = JSON.parse(JSON.stringify(oldDoc));
 
     const docNum = extractDocFieldValue(oldDoc, 'docNumber') || '-';
@@ -516,19 +530,19 @@ function handleSaveEditedDocument(docId, newFormData) {
     const newDetail = newFormData.productDetail || oldDetail;
     const category = oldDoc.category || 'Quotation';
 
-    // 2. ปรับปรุงข้อมูลใหม่
+    const preservedCodeId = oldDoc.codeId || (beforeState ? beforeState.codeId : undefined);
+
     const updatedDoc = {
       ...oldDoc,
       ...newFormData,
+      codeId: preservedCodeId,
       updateDate: new Date().toISOString(),
-      updatedBy: currentUser ? (currentUser.fullName || currentUser.username) : 'System'
+      updatedBy: currentUser ? (currentUser.employeeId || currentUser.empId || currentUser.fullName || currentUser.username) : 'System'
     };
 
-    // 3. บันทึกลง Database หรือ LocalStorage
     updateDocById(docId, updatedDoc, () => {
-      // 4. บันทึก Audit Log โดยส่ง beforeState ไปในพารามิเตอร์ตัวที่ 5
       if (typeof window.addAuditLog === 'function') {
-        const detailText = `Doc No: ${docNum} | Details: '${oldDetail}' -> '${newDetail}'`;
+        const detailText = `[Code ID: ${preservedCodeId || '-'}] Doc No: ${docNum} | Details: '${oldDetail}' -> '${newDetail}'`;
         window.addAuditLog('UPDATE', detailText, category, null, beforeState);
       }
 
@@ -540,11 +554,18 @@ function handleSaveEditedDocument(docId, newFormData) {
 }
 
 function openEditModalFromDashboard(docId) {
-  if (typeof openEditModal === 'function') {
-    openEditModal(docId);
-  } else {
-    console.log("เปิด Modal แก้ไขสำหรับ ID:", docId);
-  }
+  getDocById(docId, doc => {
+    if (!canUserEditDoc(doc)) {
+      alert("คุณไม่มีสิทธิ์แก้ไขเอกสารของแผนกนี้");
+      return;
+    }
+
+    if (typeof openEditModal === 'function') {
+      openEditModal(docId);
+    } else {
+      console.log("เปิด Modal แก้ไขสำหรับ ID:", docId);
+    }
+  });
 }
 
 function handleExportPDF() {
@@ -825,6 +846,7 @@ function updateBulkUi() {
   }
 }
 
+// 🔹 ฟังก์ชันลบเอกสารเดี่ยวจาก Dashboard
 function deleteDocFromDashboard(id) {
   getDocById(id, doc => {
     if (!doc || !canUserEditDoc(doc)) {
@@ -835,12 +857,13 @@ function deleteDocFromDashboard(id) {
     const docNum = extractDocFieldValue(doc, 'docNumber') || '-';
     const productDetail = extractDocFieldValue(doc, 'productDetail') || doc.title || '-';
     const category = doc.category || 'Quotation';
+    const preservedCodeId = doc.codeId || '-';
 
-    if (confirm(`คุณต้องการลบเอกสารเลขที่ "${docNum}" ใช่หรือไม่?`)) {
+    if (confirm(`คุณต้องการลบเอกสารเลขที่ "${docNum}" [Code ID: ${preservedCodeId}] ใช่หรือไม่?`)) {
       if (window.deleteDocumentWithLog) {
         window.deleteDocumentWithLog(doc);
       } else if (window.addAuditLog) {
-        const logDetail = `${docNum} | ${productDetail}`;
+        const logDetail = `[Code ID: ${preservedCodeId}] Doc No: ${docNum} | ${productDetail}`;
         window.addAuditLog('DELETE', logDetail, category, null, doc);
       }
 
@@ -866,15 +889,16 @@ function deleteSelectedDocs() {
 
     idsToDelete.forEach(id => {
       getDocById(id, doc => {
-        if (doc) {
+        if (doc && canUserEditDoc(doc)) {
           const docNum = extractDocFieldValue(doc, 'docNumber') || '-';
           const productDetail = extractDocFieldValue(doc, 'productDetail') || doc.title || '-';
           const category = doc.category || 'Quotation';
+          const preservedCodeId = doc.codeId || '-';
 
           if (window.deleteDocumentWithLog) {
             window.deleteDocumentWithLog(doc);
           } else if (window.addAuditLog) {
-            const logDetail = `${docNum} | ${productDetail}`;
+            const logDetail = `[Code ID: ${preservedCodeId}] Doc No: ${docNum} | ${productDetail}`;
             window.addAuditLog('DELETE', logDetail, category, null, doc);
           }
 
@@ -887,6 +911,14 @@ function deleteSelectedDocs() {
               if (typeof applyFilters === 'function') applyFilters();
             }
           });
+        } else {
+          processed++;
+          if (processed === idsToDelete.length) {
+            selectedDocIds.clear();
+            toggleSelectionMode(false);
+            if (typeof renderAll === 'function') renderAll();
+            if (typeof applyFilters === 'function') applyFilters();
+          }
         }
       });
     });
@@ -1034,16 +1066,22 @@ function toggleActionMenu(id, event) {
   if (isHidden) currentMenu.classList.remove('hidden');
 }
 
+// 🔒 ตรวจสอบสิทธิ์แก้ไข/ลบเอกสาร
 function canUserEditDoc(doc) {
   if (!currentUser) return false;
 
+  // Admin แก้ไข/ลบ ได้ทุกเอกสาร
   if (currentUser.role === 'ADMIN') return true;
 
+  // Editor แก้ไข/ลบ ได้เฉพาะเอกสารที่เป็นของแผนกตนเองเท่านั้น
   if (currentUser.role === 'EDITOR') {
     const docDept = extractDocFieldValue(doc, 'department').trim().toLowerCase();
     const userDept = (currentUser.department || currentUser.dept || currentUser.section || '').trim().toLowerCase();
 
-    return userDept !== '' && docDept === userDept;
+    // ต้องมีการระบุแผนกไว้ทั้งคู่ และแผนกตรงกันเท่านั้น
+    if (userDept && userDept !== '-' && docDept && docDept !== '-') {
+      return docDept === userDept;
+    }
   }
 
   return false;
